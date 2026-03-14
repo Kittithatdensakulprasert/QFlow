@@ -37,3 +37,7 @@ Notification Module
 - PATCH /api/notifications/:id/read อ่านการแจ้งเตือน
 
 ชื่อ กิตติภณ คำนวล
+
+- DELETE /api/notifications/:id ลบแจ้งเตือน
+
+- POST /api/notifications/send ส่งการแจ้งเตือนไปยัง User  (ระบบ)
