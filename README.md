@@ -10,6 +10,10 @@ Queue Booking Module
 
 ชื่อ พิรญาณ์ เอนอ่อน
 
+- GET /api/queues/history ประวัติการจอง
+
+- PATCH /api/queues/:id/cancel ยกเลิกคิว
+
 Queue Management
 
 ชื่อ ณัฏฐ์ ศรีสุวรรณกุล
