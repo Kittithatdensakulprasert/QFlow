@@ -18,7 +18,9 @@ Queue Management
 
 ชื่อ ณัฏฐ์ ศรีสุวรรณกุล
 
+- GET /api/manage/queues/:zoneId ดูรายการคิวทั้งหมดในโซน
 
+- PATCH /api/manage/queues/:id/call เรียกคิว + แจ้งเตือน
 
 ชื่อ ธนกฤต พิบูลย์สวัสดิ์
 
