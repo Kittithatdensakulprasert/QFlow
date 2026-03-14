@@ -24,6 +24,10 @@ Queue Management
 
 ชื่อ ธนกฤต พิบูลย์สวัสดิ์
 
+- PATCH /api/manage/queues/:id/complete ปิดคิว (เสร็จสิ้น)
+
+- PATCH /api/manage/queues/:id/skip ข้ามคิว
+ 
 Notification Module
 
 ชื่อ พชร พรพงศ์
