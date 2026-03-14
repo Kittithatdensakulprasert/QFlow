@@ -26,7 +26,8 @@ Notification Module
 
 ชื่อ พชร พรพงศ์
 
+- GET /api/notifications ดูแจ้งเตือนทั้งหมด (User)
 
-
+- PATCH /api/notifications/:id/read อ่านการแจ้งเตือน
 
 ชื่อ กิตติภณ คำนวล
