@@ -15,6 +15,7 @@ func main() {
 	http.HandleFunc("/api/manage/queues/", handlers.ManageHandler)
 
 	http.HandleFunc("/api/notifications", handlers.GetNotifications)
+	http.HandleFunc("/api/notifications/send", handlers.SendNotification)
 	http.HandleFunc("/api/notifications/", handlers.NotificationHandler)
 
 	log.Println("Server running on port 3000")
