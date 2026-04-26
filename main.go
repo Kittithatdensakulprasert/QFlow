@@ -8,6 +8,13 @@ import (
 
 func main() {
 
+	// Auth routes
+	http.HandleFunc("/api/auth/request-otp", handlers.RequestOTP)
+	http.HandleFunc("/api/auth/verify-otp", handlers.VerifyOTP)
+	http.HandleFunc("/api/auth/register", handlers.Register)
+	http.HandleFunc("/api/auth/me", handlers.ProfileHandler)
+
+	// Queue routes
 	http.HandleFunc("/api/queues/book", handlers.BookQueue)
 	http.HandleFunc("/api/queues/history", handlers.GetHistory)
 	http.HandleFunc("/api/queues/", handlers.QueueHandler)
