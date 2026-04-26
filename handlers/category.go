@@ -11,18 +11,34 @@ import (
 var categories = []models.Category{
 	{
 		ID:          1,
-		Name:        "สุกี้ตี๋น้อย",
-		Description: "ร้านอาหารสุกี้ยากี้ ชาบู",
+		Name:        "ชาบู",
 	},
 	{
 		ID:          2,
-		Name:        "Sushiro",
-		Description: "ร้านซูชิสายพาน",
+		Name:        "ซูชิ",
 	},
 }
 
 func GetCategories(w http.ResponseWriter, r *http.Request) {
-	json.NewEncoder(w).Encode(categories)
+	if r.Method == http.MethodGet {
+		json.NewEncoder(w).Encode(categories)
+		return
+	}
+
+	if r.Method == http.MethodPost {
+		var newCategory models.Category
+
+		json.NewDecoder(r.Body).Decode(&newCategory)
+
+		newCategory.ID = len(categories) + 1
+
+		categories = append(categories, newCategory)
+
+		json.NewEncoder(w).Encode(newCategory)
+		return
+	}
+
+	http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 }
 
 func CategoryHandler(w http.ResponseWriter, r *http.Request) {
