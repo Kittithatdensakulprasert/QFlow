@@ -2,7 +2,10 @@ package main
 
 import (
 	"qflow/config"
+	"qflow/db"
+	"qflow/internal/repository"
 	"qflow/internal/router"
+	"qflow/internal/service"
 
 	"github.com/gin-gonic/gin"
 )
@@ -10,8 +13,14 @@ import (
 func main() {
 	cfg := config.Load()
 
+	database := db.Connect(cfg.DSN)
+	db.Migrate(database)
+
+	notificationRepo := repository.NewNotificationRepository(database)
+	notificationSvc := service.NewNotificationService(notificationRepo)
+
 	r := gin.Default()
-	router.Setup(r)
+	router.Setup(r, notificationSvc)
 
 	r.Run(":" + cfg.Port)
 }

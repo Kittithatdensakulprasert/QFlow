@@ -13,9 +13,16 @@ type Notification struct {
 }
 
 type NotificationRepository interface {
-	// TODO: define methods
+	FindByUserID(userID uint) ([]Notification, error)
+	FindByID(id uint) (*Notification, error)
+	Create(n *Notification) error
+	MarkRead(id uint) error
+	Delete(id uint) error
 }
 
 type NotificationService interface {
-	// TODO: define methods
+	GetNotifications(userID uint) ([]Notification, error)
+	SendNotification(userID uint, message string) (*Notification, error)
+	MarkNotificationRead(id uint) error
+	DeleteNotification(id uint) error
 }
