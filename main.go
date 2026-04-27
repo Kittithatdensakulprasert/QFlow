@@ -18,9 +18,8 @@ func main() {
 	http.HandleFunc("/api/notifications/", handlers.NotificationHandler)
 
 	//Category  routes
-	http.HandleFunc("/api/categories/create", handlers.CreateCategory)
-	http.HandleFunc("/api/categories", handlers.GetCategories)
-	
+	http.HandleFunc("/api/categories", handlers.CategoriesHandler)
+	http.HandleFunc("/api/categories/", handlers.CategoryHandler)
 
 	log.Println("Server running on port 3000")
 	log.Fatal(http.ListenAndServe(":3000", nil))
