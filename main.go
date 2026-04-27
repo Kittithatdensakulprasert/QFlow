@@ -14,6 +14,10 @@ func main() {
 
 	http.HandleFunc("/api/manage/queues/", handlers.ManageHandler)
 
+	http.HandleFunc("/api/providers", handlers.ProvidersHandler)
+	http.HandleFunc("/api/providers/", handlers.ProviderHandler)
+	http.HandleFunc("/api/zones/", handlers.ZoneHandler)
+
 	http.HandleFunc("/api/notifications", handlers.GetNotifications)
 	http.HandleFunc("/api/notifications/", handlers.NotificationHandler)
 
