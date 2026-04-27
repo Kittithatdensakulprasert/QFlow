@@ -150,15 +150,22 @@ func handleUpdateCategory(w http.ResponseWriter, r *http.Request, id int) {
 
 // DELETE /api/categories/{id}
 func handleDeleteCategory(w http.ResponseWriter, id int) {
-	_, exists := getCategory(id)
+    _, exists := categories[id]
+    if !exists {
+        http.Error(w, "Category not found", http.StatusNotFound)
+        return
+    }
 
-	if !exists {
-		http.Error(w, "Category not found", http.StatusNotFound)
-		return
-	}
+    delete(categories, id)
 
-	delete(categories, id)
-	w.WriteHeader(http.StatusNoContent)
+    for i, v := range categoryOrder {
+        if v == id {
+            categoryOrder = append(categoryOrder[:i], categoryOrder[i+1:]...)
+            break
+        }
+    }
+
+    w.WriteHeader(http.StatusNoContent)
 }
 
 func parseCategoryID(r *http.Request) (int, error) {
