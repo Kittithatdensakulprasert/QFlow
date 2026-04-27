@@ -16,16 +16,19 @@ var users []models.User
 var otps []models.OTP
 var jwtSecret = []byte("your-secret-key-change-in-production")
 
+// generateOTP สร้างหมายเลข OTP แบบสุ่ม 6 หลัก
 func generateOTP() string {
 	digits := "0123456789"
 	otp := make([]byte, 6)
 	for i := range otp {
-		n, _ := rand.Read(otp[i : i+1])
-		otp[i] = digits[n%len(digits)]
+		b := make([]byte, 1)
+		rand.Read(b)
+		otp[i] = digits[b[0]%byte(len(digits))]
 	}
 	return string(otp)
 }
 
+// generateJWT สร้าง JWT token สำหรับผู้ใช้ มีอายุ 24 ชั่วโมง
 func generateJWT(userID int, phone string) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"userId": userID,
@@ -41,6 +44,7 @@ func generateJWT(userID int, phone string) (string, error) {
 	return tokenString, nil
 }
 
+// validateJWT ตรวจสอบความถูกต้องของ JWT token
 func validateJWT(tokenString string) (*jwt.MapClaims, error) {
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
@@ -60,12 +64,16 @@ func validateJWT(tokenString string) (*jwt.MapClaims, error) {
 	return nil, fmt.Errorf("invalid token")
 }
 
+// RequestOTP จัดการการขอ OTP สำหรับยืนยันตัวตน
+// Method: POST
+// Role: Guest
 func RequestOTP(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
+	// แปลง JSON request body เป็น struct
 	var req models.OTPRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
@@ -77,6 +85,7 @@ func RequestOTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// สร้าง OTP ใหม่และกำหนดอายุ 5 นาที
 	otpCode := generateOTP()
 	otp := models.OTP{
 		Phone:     req.Phone,
@@ -84,7 +93,7 @@ func RequestOTP(w http.ResponseWriter, r *http.Request) {
 		ExpiresAt: time.Now().Add(5 * time.Minute),
 	}
 
-	// Remove any existing OTP for this phone
+	// ลบ OTP เก่าของเบอร์โทรศัพท์เดิม (ถ้ามี)
 	for i, existingOTP := range otps {
 		if existingOTP.Phone == req.Phone {
 			otps = append(otps[:i], otps[i+1:]...)
@@ -92,17 +101,22 @@ func RequestOTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// เพิ่ม OTP ลงในระบบ
 	otps = append(otps, otp)
 
+	// ส่ง response กลับไป (ใน production ไม่ควรส่ง OTP กลับไปด้วย)
 	response := map[string]string{
 		"message": "OTP sent successfully",
-		"otp":     otpCode, // In production, don't return OTP in response
+		"otp":     otpCode, // ใน production ไม่ควรคืนค่า OTP
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
 }
 
+// VerifyOTP ตรวจสอบ OTP และสร้าง JWT token
+// Method: POST
+// Role: Guest
 func VerifyOTP(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -120,12 +134,12 @@ func VerifyOTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Find and validate OTP
+	// ค้นหาและตรวจสอบความถูกต้องของ OTP
 	var validOTP *models.OTP
 	for i, otp := range otps {
 		if otp.Phone == req.Phone && otp.Code == req.OTP && otp.ExpiresAt.After(time.Now()) {
 			validOTP = &otp
-			// Remove used OTP
+			// ลบ OTP ที่ใช้แล้ว
 			otps = append(otps[:i], otps[i+1:]...)
 			break
 		}
@@ -136,7 +150,7 @@ func VerifyOTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check if user exists
+	// ตรวจสอบว่ามีผู้ใช้ในระบบหรือไม่
 	var user *models.User
 	for i, u := range users {
 		if u.Phone == req.Phone {
@@ -145,10 +159,10 @@ func VerifyOTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// If user doesn't exist, create a temporary user for OTP verification
+	// ถ้าไม่มีผู้ใช้ สร้างผู้ใช้ชั่วคราวสำหรับการยืนยัน OTP
 	if user == nil {
 		tempUser := models.User{
-			ID:        len(users) + 1000, // Temporary ID
+			ID:        len(users) + 1000, // ID ชั่วคราว
 			Phone:     req.Phone,
 			CreatedAt: time.Now(),
 			UpdatedAt: time.Now(),
@@ -171,6 +185,9 @@ func VerifyOTP(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(response)
 }
 
+// Register ลงทะเบียนผู้ใช้ใหม่ด้วยการยืนยัน OTP
+// Method: POST
+// Role: Guest
 func Register(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -183,18 +200,18 @@ func Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Validate required fields
+	// ตรวจสอบฟิลด์ที่จำเป็นต้องกรอก
 	if req.Phone == "" || req.OTP == "" || req.FirstName == "" || req.LastName == "" {
 		http.Error(w, "Phone, OTP, firstName, and lastName are required", http.StatusBadRequest)
 		return
 	}
 
-	// Verify OTP
+	// ตรวจสอบ OTP
 	var validOTP *models.OTP
 	for i, otp := range otps {
 		if otp.Phone == req.Phone && otp.Code == req.OTP && otp.ExpiresAt.After(time.Now()) {
 			validOTP = &otp
-			// Remove used OTP
+			// ลบ OTP ที่ใช้แล้ว
 			otps = append(otps[:i], otps[i+1:]...)
 			break
 		}
@@ -205,7 +222,7 @@ func Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check if user already exists
+	// ตรวจสอบว่ามีผู้ใช้อยู่แล้วหรือไม่
 	for _, user := range users {
 		if user.Phone == req.Phone {
 			http.Error(w, "User already exists", http.StatusConflict)
@@ -213,7 +230,7 @@ func Register(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Create new user
+	// สร้างผู้ใช้ใหม่
 	newUser := models.User{
 		ID:        len(users) + 1,
 		Phone:     req.Phone,
@@ -241,7 +258,11 @@ func Register(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(response)
 }
 
+// ProfileHandler จัดการการดูและแก้ไขโปรไฟล์ผู้ใช้
+// GET /api/auth/me - ดูโปรไฟล์ (User)
+// PUT /api/auth/me - แก้ไขโปรไฟล์ (User)
 func ProfileHandler(w http.ResponseWriter, r *http.Request) {
+	// ตรวจสอบ Authorization header
 	authHeader := r.Header.Get("Authorization")
 	if authHeader == "" {
 		http.Error(w, "Authorization header required", http.StatusUnauthorized)
@@ -255,9 +276,10 @@ func ProfileHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// ดึงข้อมูลผู้ใช้จาก JWT token
 	userID := (*claims)["userId"].(float64)
 
-	// GET /api/auth/me - Get user profile
+	// GET /api/auth/me - ดูข้อมูลโปรไฟล์ผู้ใช้
 	if r.Method == http.MethodGet {
 		for _, user := range users {
 			if user.ID == int(userID) {
@@ -270,7 +292,7 @@ func ProfileHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// PUT /api/auth/me - Update user profile
+	// PUT /api/auth/me - แก้ไขข้อมูลโปรไฟล์ผู้ใช้
 	if r.Method == http.MethodPut {
 		var req models.UpdateProfileRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -278,6 +300,7 @@ func ProfileHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		// อัปเดตข้อมูลผู้ใช้
 		for i, user := range users {
 			if user.ID == int(userID) {
 				if req.FirstName != "" {
