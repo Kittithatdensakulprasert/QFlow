@@ -1,16 +1,23 @@
 package handlers
 
 import (
-	"encoding/json"
 	"net/http"
 	"qflow/models"
 	"strconv"
-	"strings"
+
+	"github.com/gin-gonic/gin"
 )
 
 var queues []models.Queue
 
-func BookQueue(w http.ResponseWriter, r *http.Request) {
+// POST /api/queues/book
+func BookQueue(c *gin.Context) {
+	var req models.CreateQueueRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
+		return
+	}
+
 	q := models.Queue{
 		ID:          len(queues) + 1,
 		QueueNumber: len(queues) + 1,
@@ -18,39 +25,51 @@ func BookQueue(w http.ResponseWriter, r *http.Request) {
 	}
 	queues = append(queues, q)
 
-	json.NewEncoder(w).Encode(q)
+	c.JSON(http.StatusCreated, q)
 }
 
-func GetHistory(w http.ResponseWriter, r *http.Request) {
-	json.NewEncoder(w).Encode(queues)
+// GET /api/queues/history
+func GetHistory(c *gin.Context) {
+	c.JSON(http.StatusOK, queues)
 }
 
-func QueueHandler(w http.ResponseWriter, r *http.Request) {
-	path := strings.TrimPrefix(r.URL.Path, "/api/queues/")
-	parts := strings.Split(path, "/")
+// GET /api/queues/:queueNumber
+func GetQueue(c *gin.Context) {
+	num, err := strconv.Atoi(c.Param("queueNumber"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid queue number"})
+		return
+	}
 
-	// GET /api/queues/:queueNumber
-	if r.Method == http.MethodGet {
-		num, _ := strconv.Atoi(parts[0])
-		for _, q := range queues {
-			if q.QueueNumber == num {
-				json.NewEncoder(w).Encode(q)
-				return
-			}
+	for _, q := range queues {
+		if q.QueueNumber == num {
+			c.JSON(http.StatusOK, q)
+			return
 		}
 	}
 
-	// PATCH /api/queues/:id/cancel
-	if len(parts) == 2 && parts[1] == "cancel" {
-		id, _ := strconv.Atoi(parts[0])
-		for i := range queues {
-			if queues[i].ID == id {
-				queues[i].Status = "cancelled"
-				json.NewEncoder(w).Encode(queues[i])
+	c.JSON(http.StatusNotFound, gin.H{"error": "queue not found"})
+}
+
+// PATCH /api/queues/:id/cancel
+func CancelQueue(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
+
+	for i := range queues {
+		if queues[i].ID == id {
+			if queues[i].Status == "cancelled" {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "queue already cancelled"})
 				return
 			}
+			queues[i].Status = "cancelled"
+			c.JSON(http.StatusOK, queues[i])
+			return
 		}
 	}
 
-	http.NotFound(w, r)
+	c.JSON(http.StatusNotFound, gin.H{"error": "queue not found"})
 }

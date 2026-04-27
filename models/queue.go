@@ -5,3 +5,7 @@ type Queue struct {
 	QueueNumber int    `json:"queueNumber"`
 	Status      string `json:"status"`
 }
+
+type CreateQueueRequest struct {
+	Name string `json:"name"`
+}

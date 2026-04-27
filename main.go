@@ -1,23 +1,21 @@
 package main
 
 import (
-	"log"
-	"net/http"
 	"qflow/handlers"
+
+	"github.com/gin-gonic/gin"
 )
 
 func main() {
+	r := gin.Default()
 
-	http.HandleFunc("/api/queues/book", handlers.BookQueue)
-	http.HandleFunc("/api/queues/history", handlers.GetHistory)
-	http.HandleFunc("/api/queues/", handlers.QueueHandler)
+	api := r.Group("/api/queues")
+	{
+		api.POST("/book", handlers.BookQueue)
+		api.GET("/history", handlers.GetHistory) // ต้องอยู่ก่อน /:queueNumber
+		api.GET("/:queueNumber", handlers.GetQueue)
+		api.PATCH("/:id/cancel", handlers.CancelQueue)
+	}
 
-	http.HandleFunc("/api/manage/queues/", handlers.ManageHandler)
-
-	http.HandleFunc("/api/notifications", handlers.GetNotifications)
-	http.HandleFunc("/api/notifications/send", handlers.SendNotification)
-	http.HandleFunc("/api/notifications/", handlers.NotificationHandler)
-
-	log.Println("Server running on port 3000")
-	log.Fatal(http.ListenAndServe(":3000", nil))
+	r.Run(":8080")
 }
