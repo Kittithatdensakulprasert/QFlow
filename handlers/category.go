@@ -9,6 +9,7 @@ import (
 )
 
 var categories = map[int]models.Category{}
+var categoryOrder = []int{}
 var nextCategoryID = 1
 
 func CategoriesHandler(w http.ResponseWriter, r *http.Request) {
@@ -76,16 +77,18 @@ func createCategory(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Name is required", http.StatusBadRequest)
 		return
 	}
-    
-    if isDuplicateCategoryName(newCategory.Name) {
-        http.Error(w, "Category already exists", http.StatusConflict)
-        return
-    }
+
+	if isDuplicateCategoryName(newCategory.Name) {
+		http.Error(w, "Category already exists", http.StatusConflict)
+		return
+	}
 
 	newCategory.ID = nextCategoryID
 	nextCategoryID++
 
 	categories[newCategory.ID] = newCategory
+
+	categoryOrder = append(categoryOrder, newCategory.ID)
 
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(newCategory)
@@ -105,6 +108,7 @@ func getCategory(id int) (models.Category, bool) {
 	return c, ok
 }
 
+// GET /api/categories/{id}
 func handleGetCategory(w http.ResponseWriter, id int) {
 	category, exists := getCategory(id)
 
@@ -116,6 +120,7 @@ func handleGetCategory(w http.ResponseWriter, id int) {
 	json.NewEncoder(w).Encode(category)
 }
 
+// PUT /api/categories/{id}
 func handleUpdateCategory(w http.ResponseWriter, r *http.Request, id int) {
 	var update models.Category
 
@@ -141,6 +146,7 @@ func handleUpdateCategory(w http.ResponseWriter, r *http.Request, id int) {
 	json.NewEncoder(w).Encode(category)
 }
 
+// DELETE /api/categories/{id}
 func handleDeleteCategory(w http.ResponseWriter, id int) {
 	_, exists := getCategory(id)
 
