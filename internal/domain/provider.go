@@ -10,7 +10,7 @@ type Zone struct {
 	ProviderID uint   `json:"provider_id"`
 	Name       string `json:"name"`
 	IsOpen     bool   `json:"is_open"`
-	QueueCount int    `json:"queue_count"`
+	QueueCount int    `gorm:"-" json:"queue_count"`
 }
 
 type ProviderRepository interface {
