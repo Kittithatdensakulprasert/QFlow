@@ -19,8 +19,11 @@ func main() {
 	notificationRepo := repository.NewNotificationRepository(database)
 	notificationSvc := service.NewNotificationService(notificationRepo)
 
+	authRepo := repository.NewAuthRepository(database)
+	authSvc := service.NewAuthService(authRepo)
+
 	r := gin.Default()
-	router.Setup(r, notificationSvc)
+	router.Setup(r, notificationSvc, authSvc)
 
 	r.Run(":" + cfg.Port)
 }

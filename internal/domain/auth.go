@@ -1,6 +1,8 @@
 package domain
 
-import "time"
+import (
+	"time"
+)
 
 type User struct {
 	ID        uint      `gorm:"primaryKey" json:"id"`
@@ -21,9 +23,19 @@ type OTP struct {
 }
 
 type AuthRepository interface {
-	// TODO: define methods
+	CreateOTP(phone string) (*OTP, error)
+	FindValidOTP(phone, code string) (*OTP, error)
+	MarkOTPAsUsed(otpID uint) error
+	FindUserByPhone(phone string) (*User, error)
+	CreateUser(user *User) error
+	UpdateUser(user *User) error
+	FindUserByID(id uint) (*User, error)
 }
 
 type AuthService interface {
-	// TODO: define methods
+	RequestOTP(phone string) (*OTP, error)
+	VerifyOTP(phone, code string) (*User, string, error)
+	RegisterUser(phone, name, role string) (*User, string, error)
+	GetUserProfile(userID uint) (*User, error)
+	UpdateUserProfile(userID uint, name, role string) (*User, error)
 }
