@@ -57,8 +57,10 @@ func CategoryHandler(w http.ResponseWriter, r *http.Request) {
 func getCategories(w http.ResponseWriter) {
 	var result []models.Category
 
-	for _, c := range categories {
-		result = append(result, c)
+	for _, id := range categoryOrder {
+		if c, ok := categories[id]; ok {
+			result = append(result, c)
+		}
 	}
 
 	json.NewEncoder(w).Encode(result)
