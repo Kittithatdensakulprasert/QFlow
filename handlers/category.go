@@ -26,6 +26,30 @@ func CategoriesHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func CategoryHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	id, err := parseCategoryID(r)
+	if err != nil {
+		http.Error(w, "Invalid category ID", http.StatusBadRequest)
+		return
+	}
+
+	switch r.Method {
+
+	case http.MethodGet:
+		handleGetCategory(w, id)
+
+	case http.MethodPut:
+		handleUpdateCategory(w, r, id)
+
+	case http.MethodDelete:
+		handleDeleteCategory(w, id)
+
+	default:
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	}
+}
 
 // GET /api/categories
 func getCategories(w http.ResponseWriter) {
@@ -73,4 +97,9 @@ func isDuplicateCategoryName(name string) bool {
 		}
 	}
 	return false
+}
+
+func getCategory(id int) (models.Category, bool) {
+	c, ok := categories[id]
+	return c, ok
 }
