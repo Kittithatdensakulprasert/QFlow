@@ -1,8 +1,50 @@
 # QFlow — Queue Management API
 
-ระบบจัดการคิวออนไลน์ พัฒนาด้วย Go (net/http) สำหรับวิชา CS367 Web Service Development Concepts
+ระบบจัดการคิวออนไลน์ พัฒนาด้วย Go + Gin Framework สำหรับวิชา CS367 Web Service Development Concepts
 
 **6 Modules — 27 Endpoints — 4 User Roles**
+
+---
+
+## Tech Stack
+
+- **Language:** Go
+- **Framework:** Gin
+- **Database:** PostgreSQL + GORM
+- **Auth:** JWT + OTP
+- **Container:** Docker
+
+---
+
+## โครงสร้างโปรเจกต์
+
+```
+QFlow/
+├── main.go
+├── config/
+│   └── config.go               ← โหลด environment variables
+├── internal/
+│   ├── domain/                 ← entities และ interfaces
+│   │   ├── auth.go
+│   │   ├── category.go
+│   │   ├── provider.go
+│   │   ├── queue.go
+│   │   └── notification.go
+│   ├── handler/                ← HTTP handlers (Gin)
+│   │   ├── auth_handler.go
+│   │   ├── category_handler.go
+│   │   ├── provider_handler.go
+│   │   ├── queue_handler.go
+│   │   └── notification_handler.go
+│   ├── service/                ← business logic
+│   ├── repository/             ← database access layer
+│   ├── middleware/
+│   │   └── auth.go             ← JWT middleware
+│   └── router/
+│       └── router.go           ← ลงทะเบียน routes ทั้งหมด
+└── db/
+    └── migrations/             ← SQL migration files
+```
 
 ---
 
@@ -42,7 +84,7 @@
 
 | ชื่อ | งานที่รับผิดชอบ | Branch |
 |------|----------------|--------|
-| กิตติภณ คำนวล | `GET /api/notifications`, `PATCH /api/notifications/:id/read`, `DELETE /api/notifications/:id`, `POST /api/notifications/send`, **Database (Schema + Migration)**, **Unit Test: Notification** | `feature/notification` |
+| กิตติภณ คำนวล | `GET /api/notifications`, `PATCH /api/notifications/:id/read`, `DELETE /api/notifications/:id`, `POST /api/notifications/send`, **Database Schema + Migration**, **Unit Test: Notification** | `feature/notification` |
 
 ---
 
@@ -70,8 +112,8 @@
 | Method | Endpoint | คำอธิบาย | Role |
 |--------|----------|----------|------|
 | `POST` | `/api/providers` | สร้างผู้ให้บริการ | Admin |
-| `POST` | `/api/providers/:id/zones` | เพิ่มโซนใหม่ | Provider |
 | `GET` | `/api/providers` | ดูผู้ให้บริการทั้งหมด | Guest |
+| `POST` | `/api/providers/:id/zones` | เพิ่มโซนใหม่ | Provider |
 | `GET` | `/api/providers/:id/zones` | ดูโซน + จำนวนคิว | Guest |
 | `PATCH` | `/api/zones/:id/toggle` | เปิด/ปิดโซน | Provider |
 
@@ -101,24 +143,28 @@
 
 ---
 
-## Tech Stack
-
-- **Language:** Go
-- **Database:** (TBD)
-- **Auth:** JWT + OTP
-- **Container:** Docker
-
----
-
 ## วิธีการติดตั้งและรัน
 
+### Environment Variables
+
+สร้างไฟล์ `.env` ที่ root:
+
+```env
+PORT=3000
+DATABASE_URL=postgres://user:password@localhost:5432/qflow
+JWT_SECRET=your-secret-key
+```
+
 ### รันด้วย Go
+
 ```bash
 go run main.go
 ```
+
 Server จะรันที่ `http://localhost:3000`
 
 ### รันด้วย Docker
+
 ```bash
 docker-compose up --build
 ```
