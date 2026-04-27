@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strings"
+    "strconv"
 	"qflow/models"
 )
 
@@ -102,4 +103,57 @@ func isDuplicateCategoryName(name string) bool {
 func getCategory(id int) (models.Category, bool) {
 	c, ok := categories[id]
 	return c, ok
+}
+
+func handleGetCategory(w http.ResponseWriter, id int) {
+	category, exists := getCategory(id)
+
+	if !exists {
+		http.Error(w, "Category not found", http.StatusNotFound)
+		return
+	}
+
+	json.NewEncoder(w).Encode(category)
+}
+
+func handleUpdateCategory(w http.ResponseWriter, r *http.Request, id int) {
+	var update models.Category
+
+	if err := json.NewDecoder(r.Body).Decode(&update); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if update.Name == "" {
+		http.Error(w, "Name is required", http.StatusBadRequest)
+		return
+	}
+
+	category, exists := getCategory(id)
+	if !exists {
+		http.Error(w, "Category not found", http.StatusNotFound)
+		return
+	}
+
+	category.Name = update.Name
+	categories[id] = category
+
+	json.NewEncoder(w).Encode(category)
+}
+
+func handleDeleteCategory(w http.ResponseWriter, id int) {
+	_, exists := getCategory(id)
+
+	if !exists {
+		http.Error(w, "Category not found", http.StatusNotFound)
+		return
+	}
+
+	delete(categories, id)
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func parseCategoryID(r *http.Request) (int, error) {
+	idStr := strings.TrimPrefix(r.URL.Path, "/api/categories/")
+	return strconv.Atoi(idStr)
 }
