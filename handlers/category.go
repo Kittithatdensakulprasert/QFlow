@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strings"
     "strconv"
+    "errors"
 	"qflow/models"
 )
 
@@ -80,10 +81,10 @@ func createCategory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if isDuplicateCategoryName(newCategory.Name) {
-		http.Error(w, "Category already exists", http.StatusConflict)
-		return
-	}
+	if isDuplicateCategoryName(newCategory.Name, 0) {
+        http.Error(w, "Category already exists", http.StatusConflict)
+        return
+    }
 
 	newCategory.ID = nextCategoryID
 	nextCategoryID++
@@ -96,9 +97,9 @@ func createCategory(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(newCategory)
 }
 
-func isDuplicateCategoryName(name string) bool {
+func isDuplicateCategoryName(name string, ignoreID int) bool {
 	for _, c := range categories {
-		if strings.EqualFold(c.Name, name) {
+		if c.ID != ignoreID && strings.EqualFold(c.Name, name) {
 			return true
 		}
 	}
@@ -136,39 +137,64 @@ func handleUpdateCategory(w http.ResponseWriter, r *http.Request, id int) {
 		return
 	}
 
-	category, exists := getCategory(id)
-	if !exists {
+    if isDuplicateCategoryName(update.Name, id) {
+        http.Error(w, "Category already exists", http.StatusConflict)
+        return
+    }
+	category, ok := updateCategoryName(id, update.Name)
+	if !ok {
 		http.Error(w, "Category not found", http.StatusNotFound)
 		return
 	}
-
-	category.Name = update.Name
-	categories[id] = category
 
 	json.NewEncoder(w).Encode(category)
 }
 
 // DELETE /api/categories/{id}
 func handleDeleteCategory(w http.ResponseWriter, id int) {
-    _, exists := categories[id]
-    if !exists {
-        http.Error(w, "Category not found", http.StatusNotFound)
-        return
-    }
+	_, exists := getCategory(id)
 
-    delete(categories, id)
+	if !exists {
+		http.Error(w, "Category not found", http.StatusNotFound)
+		return
+	}
 
-    for i, v := range categoryOrder {
-        if v == id {
-            categoryOrder = append(categoryOrder[:i], categoryOrder[i+1:]...)
-            break
-        }
-    }
+	delete(categories, id)
 
-    w.WriteHeader(http.StatusNoContent)
+	for i, v := range categoryOrder {
+		if v == id {
+			categoryOrder = append(categoryOrder[:i], categoryOrder[i+1:]...)
+			break
+		}
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func updateCategoryName(id int, name string) (models.Category, bool) {
+	category, exists := categories[id]
+	if !exists {
+		return models.Category{}, false
+	}
+
+	category.Name = name
+	categories[id] = category
+
+	return category, true
 }
 
 func parseCategoryID(r *http.Request) (int, error) {
-	idStr := strings.TrimPrefix(r.URL.Path, "/api/categories/")
-	return strconv.Atoi(idStr)
+	path := strings.Trim(r.URL.Path, "/")
+	parts := strings.Split(path, "/")
+
+	if len(parts) < 3 {
+		return 0, errors.New("missing category id")
+	}
+
+	id, err := strconv.Atoi(parts[2])
+	if err != nil {
+		return 0, errors.New("invalid category id format")
+	}
+
+	return id, nil
 }
