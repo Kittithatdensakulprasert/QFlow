@@ -15,9 +15,18 @@ type Queue struct {
 }
 
 type QueueRepository interface {
-	// TODO: define methods
+	FindZoneByID(id uint) (*Zone, error)
+	GetNextQueueNumber(zoneID uint) (int, error)
+	Create(queue *Queue) error
+	FindByQueueNumber(queueNumber int) (*Queue, error)
+	FindByID(id uint) (*Queue, error)
+	FindByUserID(userID uint) ([]Queue, error)
+	UpdateStatus(id uint, status string) error
 }
 
 type QueueService interface {
-	// TODO: define methods
+	BookQueue(userID, zoneID uint) (*Queue, error)
+	GetQueueByNumber(queueNumber int) (*Queue, error)
+	GetQueueHistory(userID uint) ([]Queue, error)
+	CancelQueue(id, userID uint) error
 }
