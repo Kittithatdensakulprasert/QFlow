@@ -23,6 +23,24 @@ func NotificationHandler(w http.ResponseWriter, r *http.Request) {
 	path := strings.TrimPrefix(r.URL.Path, "/api/notifications/")
 	parts := strings.Split(path, "/")
 
+	// PATCH /api/notifications/:id/read
+	if r.Method == http.MethodPatch && len(parts) == 2 && parts[1] == "read" {
+		id, err := strconv.Atoi(parts[0])
+		if err != nil {
+			http.Error(w, "invalid id", http.StatusBadRequest)
+			return
+		}
+		for i, n := range notifications {
+			if n.ID == id {
+				notifications[i].Read = true
+				json.NewEncoder(w).Encode(notifications[i])
+				return
+			}
+		}
+		http.NotFound(w, r)
+		return
+	}
+
 	// DELETE /api/notifications/:id
 	if r.Method == http.MethodDelete && len(parts) == 1 && parts[0] != "" {
 		id, err := strconv.Atoi(parts[0])
