@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 	"qflow/models"
 )
 
@@ -50,6 +51,11 @@ func createCategory(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Name is required", http.StatusBadRequest)
 		return
 	}
+    
+    if isDuplicateCategoryName(newCategory.Name) {
+        http.Error(w, "Category already exists", http.StatusConflict)
+        return
+    }
 
 	newCategory.ID = nextCategoryID
 	nextCategoryID++
@@ -58,4 +64,13 @@ func createCategory(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(newCategory)
+}
+
+func isDuplicateCategoryName(name string) bool {
+	for _, c := range categories {
+		if strings.EqualFold(c.Name, name) {
+			return true
+		}
+	}
+	return false
 }
