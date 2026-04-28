@@ -15,7 +15,10 @@ import (
 
 func main() {
 	cfg := config.Load()
-	if cfg.JWTSecret == "" || cfg.JWTSecret == "secret" || cfg.JWTSecret == "your-secret-key-here" {
+	if cfg.JWTSecret == "" ||
+		cfg.JWTSecret == "secret" ||
+		cfg.JWTSecret == "your-secret-key-here" ||
+		cfg.JWTSecret == "change-me-to-a-long-random-jwt-secret-for-local-dev" {
 		log.Fatal("JWT_SECRET must be set to a strong non-default value")
 	}
 
