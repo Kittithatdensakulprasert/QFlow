@@ -22,20 +22,25 @@ func (r *queueRepository) FindZoneByID(id uint) (*domain.Zone, error) {
 	return &zone, nil
 }
 
-func (r *queueRepository) GetNextQueueNumber(zoneID uint) (int, error) {
-	var last domain.Queue
-	err := r.db.Where("zone_id = ?", zoneID).Order("queue_number desc").First(&last).Error
-	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return 1, nil
+func (r *queueRepository) CreateWithNextQueueNumber(queue *domain.Queue) error {
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Exec("SELECT pg_advisory_xact_lock(?)", int64(1001)).Error; err != nil {
+			return err
 		}
-		return 0, err
-	}
-	return last.QueueNumber + 1, nil
-}
 
-func (r *queueRepository) Create(queue *domain.Queue) error {
-	return r.db.Create(queue).Error
+		var last domain.Queue
+		err := tx.Order("queue_number desc").First(&last).Error
+		if err != nil && err != gorm.ErrRecordNotFound {
+			return err
+		}
+		if err == gorm.ErrRecordNotFound {
+			queue.QueueNumber = 1
+		} else {
+			queue.QueueNumber = last.QueueNumber + 1
+		}
+
+		return tx.Create(queue).Error
+	})
 }
 
 func (r *queueRepository) FindByQueueNumber(queueNumber int) (*domain.Queue, error) {

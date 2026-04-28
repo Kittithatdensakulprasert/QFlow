@@ -35,23 +35,17 @@ func (m *mockQueueRepo) FindZoneByID(id uint) (*domain.Zone, error) {
 	return &zone, nil
 }
 
-func (m *mockQueueRepo) GetNextQueueNumber(zoneID uint) (int, error) {
-	if m.repoErr != nil {
-		return 0, m.repoErr
-	}
-	maxQueueNumber := 0
-	for _, queue := range m.queues {
-		if queue.ZoneID == zoneID && queue.QueueNumber > maxQueueNumber {
-			maxQueueNumber = queue.QueueNumber
-		}
-	}
-	return maxQueueNumber + 1, nil
-}
-
-func (m *mockQueueRepo) Create(queue *domain.Queue) error {
+func (m *mockQueueRepo) CreateWithNextQueueNumber(queue *domain.Queue) error {
 	if m.repoErr != nil {
 		return m.repoErr
 	}
+	maxQueueNumber := 0
+	for _, queue := range m.queues {
+		if queue.QueueNumber > maxQueueNumber {
+			maxQueueNumber = queue.QueueNumber
+		}
+	}
+	queue.QueueNumber = maxQueueNumber + 1
 	queue.ID = m.nextID
 	m.nextID++
 	m.queues = append(m.queues, *queue)
@@ -128,6 +122,26 @@ func TestBookQueue(t *testing.T) {
 	}
 }
 
+func TestBookQueue_AssignsGlobalQueueNumbersAcrossZones(t *testing.T) {
+	repo := newMockQueueRepo()
+	repo.zones[1] = domain.Zone{ID: 1, IsOpen: true}
+	repo.zones[2] = domain.Zone{ID: 2, IsOpen: true}
+	svc := service.NewQueueService(repo)
+
+	first, err := svc.BookQueue(10, 1)
+	if err != nil {
+		t.Fatalf("unexpected first booking error: %v", err)
+	}
+	second, err := svc.BookQueue(20, 2)
+	if err != nil {
+		t.Fatalf("unexpected second booking error: %v", err)
+	}
+
+	if first.QueueNumber != 1 || second.QueueNumber != 2 {
+		t.Fatalf("expected global queue numbers 1 and 2, got %d and %d", first.QueueNumber, second.QueueNumber)
+	}
+}
+
 func TestBookQueue_ValidationAndZoneErrors(t *testing.T) {
 	repo := newMockQueueRepo()
 	repo.zones[1] = domain.Zone{ID: 1, IsOpen: false}
@@ -172,7 +186,7 @@ func TestGetQueueByNumber(t *testing.T) {
 	svc := service.NewQueueService(repo)
 	_, _ = svc.BookQueue(1, 1)
 
-	queue, err := svc.GetQueueByNumber(1)
+	queue, err := svc.GetQueueByNumber(1, 1)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -185,9 +199,26 @@ func TestGetQueueByNumber_NotFound(t *testing.T) {
 	repo := newMockQueueRepo()
 	svc := service.NewQueueService(repo)
 
-	_, err := svc.GetQueueByNumber(999)
+	_, err := svc.GetQueueByNumber(999, 1)
 	if !errors.Is(err, service.ErrQueueNotFound) {
 		t.Fatalf("expected queue not found error, got %v", err)
+	}
+}
+
+func TestGetQueueByNumber_RejectsInvalidOrDifferentUser(t *testing.T) {
+	repo := newMockQueueRepo()
+	repo.zones[1] = domain.Zone{ID: 1, IsOpen: true}
+	svc := service.NewQueueService(repo)
+	_, _ = svc.BookQueue(1, 1)
+
+	_, err := svc.GetQueueByNumber(1, 0)
+	if !errors.Is(err, service.ErrInvalidUserID) {
+		t.Fatalf("expected invalid user id error, got %v", err)
+	}
+
+	_, err = svc.GetQueueByNumber(1, 99)
+	if !errors.Is(err, service.ErrForbiddenQueue) {
+		t.Fatalf("expected forbidden queue error, got %v", err)
 	}
 }
 

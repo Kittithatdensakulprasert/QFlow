@@ -52,10 +52,14 @@ func (m *mockAuthRepository) FindValidOTP(phone, code string) (*domain.OTP, erro
 }
 
 func (m *mockAuthRepository) MarkOTPAsUsed(otpID uint) error {
+	if m.otpUsed {
+		return errors.New("OTP has already been used or does not exist")
+	}
 	if m.otp != nil && m.otp.ID == otpID {
 		m.otpUsed = true
+		return nil
 	}
-	return nil
+	return errors.New("OTP has already been used or does not exist")
 }
 
 func (m *mockAuthRepository) FindUserByPhone(phone string) (*domain.User, error) {
@@ -154,6 +158,10 @@ func TestAuthService_VerifyOTP(t *testing.T) {
 		{"invalid phone", "", "123456", func(m *mockAuthRepository) {}, true},
 		{"invalid code", "1234567890", "", func(m *mockAuthRepository) {}, true},
 		{"OTP not found", "1234567890", "123456", func(m *mockAuthRepository) {}, true},
+		{"OTP already used", "1234567890", "123456", func(m *mockAuthRepository) {
+			m.otp = &domain.OTP{ID: 1, Phone: "1234567890", Code: "123456", Used: false, ExpiresAt: time.Now().Add(5 * time.Minute)}
+			m.otpUsed = true
+		}, true},
 		{"user not found", "1234567890", "123456", func(m *mockAuthRepository) {
 			m.otp = &domain.OTP{ID: 1, Phone: "1234567890", Code: "123456", Used: false, ExpiresAt: time.Now().Add(5 * time.Minute)}
 		}, false},
@@ -214,6 +222,10 @@ func TestAuthService_RegisterUser(t *testing.T) {
 		{"user exists", "1234567890", "Test User", "user", func(m *mockAuthRepository) {
 			user := &domain.User{ID: 1, Phone: "1234567890", Name: "Existing User"}
 			m.users["1234567890"] = user
+		}, true},
+		{"OTP already used", "1234567890", "Test User", "user", func(m *mockAuthRepository) {
+			m.otp = &domain.OTP{ID: 1, Phone: "1234567890", Code: "123456", Used: false, ExpiresAt: time.Now().Add(5 * time.Minute)}
+			m.otpUsed = true
 		}, true},
 		{"create error", "1234567890", "Test User", "user", func(m *mockAuthRepository) {
 			m.createUserErr = errors.New("database error")

@@ -45,7 +45,7 @@ CREATE TABLE IF NOT EXISTS zones (
 
 CREATE TABLE IF NOT EXISTS queues (
     id           SERIAL PRIMARY KEY,
-    queue_number INTEGER NOT NULL,
+    queue_number INTEGER UNIQUE NOT NULL,
     zone_id      INTEGER NOT NULL REFERENCES zones(id) ON DELETE CASCADE,
     user_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     status       VARCHAR(20) NOT NULL DEFAULT 'waiting',  -- waiting, called, completed, skipped, cancelled

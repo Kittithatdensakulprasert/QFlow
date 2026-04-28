@@ -2,28 +2,27 @@ package handler
 
 import (
 	"net/http"
-	"strconv"
-
 	"qflow/internal/domain"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 )
 
 type AuthHandler struct {
-	authService domain.AuthService
+	authService       domain.AuthService
+	exposeOTPResponse bool
 }
 
-func NewAuthHandler(authService domain.AuthService) *AuthHandler {
-	return &AuthHandler{authService: authService}
+func NewAuthHandler(authService domain.AuthService, exposeOTPResponse bool) *AuthHandler {
+	return &AuthHandler{authService: authService, exposeOTPResponse: exposeOTPResponse}
 }
 
 func (h *AuthHandler) RequestOTP(c *gin.Context) {
 	var req struct {
 		Phone string `json:"phone" binding:"required"`
 	}
-
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request format"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request format"})
 		return
 	}
 
@@ -33,10 +32,14 @@ func (h *AuthHandler) RequestOTP(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
+	response := gin.H{
 		"message": "OTP sent successfully",
 		"otp_id":  otp.ID,
-	})
+	}
+	if h.exposeOTPResponse {
+		response["otp_code"] = otp.Code
+	}
+	c.JSON(http.StatusOK, response)
 }
 
 func (h *AuthHandler) VerifyOTP(c *gin.Context) {
@@ -44,9 +47,8 @@ func (h *AuthHandler) VerifyOTP(c *gin.Context) {
 		Phone string `json:"phone" binding:"required"`
 		Code  string `json:"code" binding:"required"`
 	}
-
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request format"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request format"})
 		return
 	}
 
@@ -70,9 +72,8 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		Role    string `json:"role"`
 		OTPCode string `json:"otp_code" binding:"required"`
 	}
-
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request format"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request format"})
 		return
 	}
 
@@ -90,31 +91,9 @@ func (h *AuthHandler) Register(c *gin.Context) {
 }
 
 func (h *AuthHandler) GetProfile(c *gin.Context) {
-	// ONLY get from context (JWT middleware) - NO FALLBACK for security
-	userIDInterface, exists := c.Get("user_id")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Authentication required"})
-		return
-	}
-
-	// Convert to uint with proper type checking
-	var userID uint
-	switch v := userIDInterface.(type) {
-	case uint:
-		userID = v
-	case int:
-		userID = uint(v)
-	case string:
-		uid, err := strconv.ParseUint(v, 10, 32)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid user ID in context"})
-			return
-		}
-		userID = uint(uid)
-	case float64:
-		userID = uint(v)
-	default:
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid user ID type in context"})
+	userID, ok := resolveContextUserID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
 		return
 	}
 
@@ -128,31 +107,9 @@ func (h *AuthHandler) GetProfile(c *gin.Context) {
 }
 
 func (h *AuthHandler) UpdateProfile(c *gin.Context) {
-	// ONLY get from context (JWT middleware) - NO FALLBACK for security
-	userIDInterface, exists := c.Get("user_id")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Authentication required"})
-		return
-	}
-
-	// Convert to uint with proper type checking
-	var userID uint
-	switch v := userIDInterface.(type) {
-	case uint:
-		userID = v
-	case int:
-		userID = uint(v)
-	case string:
-		uid, err := strconv.ParseUint(v, 10, 32)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid user ID in context"})
-			return
-		}
-		userID = uint(uid)
-	case float64:
-		userID = uint(v)
-	default:
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid user ID type in context"})
+	userID, ok := resolveContextUserID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
 		return
 	}
 
@@ -160,9 +117,8 @@ func (h *AuthHandler) UpdateProfile(c *gin.Context) {
 		Name string `json:"name"`
 		Role string `json:"role"`
 	}
-
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request format"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request format"})
 		return
 	}
 
@@ -176,4 +132,31 @@ func (h *AuthHandler) UpdateProfile(c *gin.Context) {
 		"message": "Profile updated successfully",
 		"user":    user,
 	})
+}
+
+func resolveContextUserID(c *gin.Context) (uint, bool) {
+	userIDInterface, exists := c.Get("user_id")
+	if !exists {
+		return 0, false
+	}
+
+	switch v := userIDInterface.(type) {
+	case uint:
+		return v, v > 0
+	case int:
+		if v > 0 {
+			return uint(v), true
+		}
+	case string:
+		uid, err := strconv.ParseUint(v, 10, 32)
+		if err == nil && uid > 0 {
+			return uint(uid), true
+		}
+	case float64:
+		if v > 0 {
+			return uint(v), true
+		}
+	}
+
+	return 0, false
 }

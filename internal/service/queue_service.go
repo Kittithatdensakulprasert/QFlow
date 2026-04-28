@@ -45,31 +45,32 @@ func (s *queueService) BookQueue(userID, zoneID uint) (*domain.Queue, error) {
 		return nil, ErrZoneClosed
 	}
 
-	queueNumber, err := s.repo.GetNextQueueNumber(zoneID)
-	if err != nil {
-		return nil, err
-	}
-
 	queue := &domain.Queue{
-		QueueNumber: queueNumber,
-		ZoneID:      zoneID,
-		UserID:      userID,
-		Status:      "waiting",
+		ZoneID: zoneID,
+		UserID: userID,
+		Status: "waiting",
 	}
-	if err := s.repo.Create(queue); err != nil {
+	if err := s.repo.CreateWithNextQueueNumber(queue); err != nil {
 		return nil, err
 	}
 	queue.Zone = *zone
 	return queue, nil
 }
 
-func (s *queueService) GetQueueByNumber(queueNumber int) (*domain.Queue, error) {
+func (s *queueService) GetQueueByNumber(queueNumber int, userID uint) (*domain.Queue, error) {
+	if userID == 0 {
+		return nil, ErrInvalidUserID
+	}
+
 	queue, err := s.repo.FindByQueueNumber(queueNumber)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrQueueNotFound
 		}
 		return nil, err
+	}
+	if queue.UserID != userID {
+		return nil, ErrForbiddenQueue
 	}
 	return queue, nil
 }

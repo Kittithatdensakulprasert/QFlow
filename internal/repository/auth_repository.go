@@ -2,6 +2,7 @@ package repository
 
 import (
 	"crypto/rand"
+	"errors"
 	"fmt"
 	"math/big"
 	"time"
@@ -52,7 +53,14 @@ func (r *authRepository) FindValidOTP(phone, code string) (*domain.OTP, error) {
 }
 
 func (r *authRepository) MarkOTPAsUsed(otpID uint) error {
-	return r.db.Model(&domain.OTP{}).Where("id = ?", otpID).Update("used", true).Error
+	result := r.db.Model(&domain.OTP{}).Where("id = ? AND used = ?", otpID, false).Update("used", true)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return errors.New("OTP has already been used or does not exist")
+	}
+	return nil
 }
 
 func (r *authRepository) FindUserByPhone(phone string) (*domain.User, error) {
