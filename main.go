@@ -9,6 +9,7 @@ import (
 	"qflow/internal/repository"
 	"qflow/internal/router"
 	"qflow/internal/service"
+	"qflow/internal/swagger"
 
 	"github.com/gin-gonic/gin"
 )
@@ -40,6 +41,7 @@ func main() {
 
 	r := gin.Default()
 	router.Setup(r, providerSvc, queueSvc, notificationSvc, authSvc, jwtManager, cfg.ExposeOTPInResponse())
+	swagger.Register(r)
 
 	r.Run(":" + cfg.Port)
 }
