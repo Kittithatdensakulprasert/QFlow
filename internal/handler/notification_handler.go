@@ -112,28 +112,21 @@ func (h *NotificationHandler) DeleteNotification(c *gin.Context) {
 
 func resolveNotificationUserID(c *gin.Context) (uint, bool) {
 	userIDVal, exists := c.Get("user_id")
-	if exists {
-		switch v := userIDVal.(type) {
-		case uint:
-			return v, true
-		case int:
-			if v > 0 {
-				return uint(v), true
-			}
-		case float64:
-			if v > 0 {
-				return uint(v), true
-			}
-		}
+	if !exists {
+		return 0, false
 	}
 
-	userIDQuery := c.Query("user_id")
-	if userIDQuery != "" {
-		userID, err := strconv.ParseUint(userIDQuery, 10, 64)
-		if err == nil && userID > 0 {
-			return uint(userID), true
+	switch v := userIDVal.(type) {
+	case uint:
+		return v, true
+	case int:
+		if v > 0 {
+			return uint(v), true
+		}
+	case float64:
+		if v > 0 {
+			return uint(v), true
 		}
 	}
-
 	return 0, false
 }

@@ -3,11 +3,12 @@ package router
 import (
 	"qflow/internal/domain"
 	"qflow/internal/handler"
+	"qflow/internal/middleware"
 
 	"github.com/gin-gonic/gin"
 )
 
-func Setup(r *gin.Engine, providerSvc domain.ProviderService, queueSvc domain.QueueService, notificationSvc domain.NotificationService) {
+func Setup(r *gin.Engine, providerSvc domain.ProviderService, queueSvc domain.QueueService, notificationSvc domain.NotificationService, jwtSecret string) {
 	auth := handler.NewAuthHandler()
 	category := handler.NewCategoryHandler()
 	provider := handler.NewProviderHandler(providerSvc)
@@ -15,6 +16,8 @@ func Setup(r *gin.Engine, providerSvc domain.ProviderService, queueSvc domain.Qu
 	notification := handler.NewNotificationHandler(notificationSvc)
 
 	api := r.Group("/api")
+	protected := api.Group("/")
+	protected.Use(middleware.JWTAuth(jwtSecret))
 
 	// Auth
 	api.POST("/auth/request-otp", auth.RequestOTP)
@@ -50,8 +53,8 @@ func Setup(r *gin.Engine, providerSvc domain.ProviderService, queueSvc domain.Qu
 	api.PATCH("/manage/queues/:id/skip", queue.SkipQueue)
 
 	// Notification
-	api.GET("/notifications", notification.GetNotifications)
-	api.POST("/notifications/send", notification.SendNotification)
-	api.PATCH("/notifications/:id/read", notification.MarkNotificationRead)
-	api.DELETE("/notifications/:id", notification.DeleteNotification)
+	protected.GET("/notifications", notification.GetNotifications)
+	protected.POST("/notifications/send", notification.SendNotification)
+	protected.PATCH("/notifications/:id/read", notification.MarkNotificationRead)
+	protected.DELETE("/notifications/:id", notification.DeleteNotification)
 }
