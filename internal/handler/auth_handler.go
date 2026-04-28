@@ -3,6 +3,7 @@ package handler
 import (
 	"crypto/rand"
 	"errors"
+	"log"
 	"math/big"
 	"net/http"
 	"os"
@@ -49,9 +50,19 @@ func (h *AuthHandler) RequestOTP(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"message": "otp sent",
-	})
+	// Delivery behavior:
+	// - Development/testing: return OTP in response for local/manual verification.
+	// - Production: do not expose OTP in response; requires real SMS integration.
+	if os.Getenv("APP_ENV") != "production" {
+		c.JSON(http.StatusOK, gin.H{
+			"message": "otp sent",
+			"otp":     code,
+		})
+		return
+	}
+
+	log.Printf("otp generated for phone %s but SMS provider is not configured", body.Phone)
+	c.JSON(http.StatusOK, gin.H{"message": "otp sent"})
 }
 
 func (h *AuthHandler) VerifyOTP(c *gin.Context) {
