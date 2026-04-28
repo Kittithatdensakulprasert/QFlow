@@ -8,7 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func Setup(r *gin.Engine, queueSvc domain.QueueService, notificationSvc domain.NotificationService) {
+func Setup(r *gin.Engine, queueSvc domain.QueueService, notificationSvc domain.NotificationService, jwtSecret string) {
 	auth := handler.NewAuthHandler()
 	category := handler.NewCategoryHandler()
 	provider := handler.NewProviderHandler()
@@ -18,7 +18,7 @@ func Setup(r *gin.Engine, queueSvc domain.QueueService, notificationSvc domain.N
 	api := r.Group("/api")
 
 	protected := api.Group("/")
-	protected.Use(middleware.JWTAuth())
+	protected.Use(middleware.JWTAuth(jwtSecret))
 
 	protected.GET("/auth/me", auth.GetProfile)
 	protected.PUT("/auth/me", auth.UpdateProfile)

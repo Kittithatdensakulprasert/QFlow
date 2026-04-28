@@ -2,16 +2,13 @@ package middleware
 
 import (
 	"net/http"
-	"os"
 	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 )
 
-func JWTAuth() gin.HandlerFunc {
-	secret := os.Getenv("JWT_SECRET")
-
+func JWTAuth(secret string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if secret == "" {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "jwt secret is not configured"})

@@ -22,7 +22,7 @@ func main() {
 	notificationSvc := service.NewNotificationService(notificationRepo)
 
 	r := gin.Default()
-	router.Setup(r, queueSvc, notificationSvc)
+	router.Setup(r, queueSvc, notificationSvc, cfg.JWTSecret)
 
 	r.Run(":" + cfg.Port)
 }
