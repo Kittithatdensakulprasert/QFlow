@@ -11,7 +11,7 @@ func Setup(r *gin.Engine, queueSvc domain.QueueService, notificationSvc domain.N
 	auth := handler.NewAuthHandler(authSvc)
 	category := handler.NewCategoryHandler()
 	provider := handler.NewProviderHandler()
-	queue := handler.NewQueueHandler()
+	queue := handler.NewQueueHandler(queueSvc)
 	notification := handler.NewNotificationHandler(notificationSvc)
 
 	api := r.Group("/api")

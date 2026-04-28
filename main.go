@@ -16,6 +16,8 @@ func main() {
 	database := db.Connect(cfg.DSN)
 	db.Migrate(database)
 
+	queueRepo := repository.NewQueueRepository(database)
+	queueSvc := service.NewQueueService(queueRepo)
 	notificationRepo := repository.NewNotificationRepository(database)
 	notificationSvc := service.NewNotificationService(notificationRepo)
 
@@ -23,7 +25,7 @@ func main() {
 	authSvc := service.NewAuthService(authRepo)
 
 	r := gin.Default()
-	router.Setup(r, nil, notificationSvc, authSvc)
+	router.Setup(r, queueSvc, notificationSvc, authSvc)
 
 	r.Run(":" + cfg.Port)
 }
