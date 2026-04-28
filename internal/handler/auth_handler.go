@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"fmt"
 	"net/http"
 	"strconv"
 
@@ -90,44 +89,35 @@ func (h *AuthHandler) Register(c *gin.Context) {
 }
 
 func (h *AuthHandler) GetProfile(c *gin.Context) {
-	// Try to get user ID from context (JWT middleware) first
+	// ONLY get from context (JWT middleware) - NO FALLBACK for security
 	userIDInterface, exists := c.Get("user_id")
-	var userIDStr string
-
-	if exists {
-		// From context (JWT middleware)
-		switch v := userIDInterface.(type) {
-		case uint:
-			userIDStr = strconv.FormatUint(uint64(v), 10)
-		case int:
-			userIDStr = strconv.Itoa(v)
-		case string:
-			userIDStr = v
-		case float64:
-			userIDStr = strconv.FormatUint(uint64(v), 10)
-		default:
-			userIDStr = fmt.Sprintf("%v", v)
-		}
-	} else {
-		// Fallback: try header first, then query parameter
-		userIDStr = c.GetHeader("X-User-ID")
-		if userIDStr == "" {
-			userIDStr = c.Query("user_id")
-		}
-	}
-
-	if userIDStr == "" {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "User ID required"})
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Authentication required"})
 		return
 	}
 
-	userID, err := strconv.ParseUint(userIDStr, 10, 32)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
+	// Convert to uint with proper type checking
+	var userID uint
+	switch v := userIDInterface.(type) {
+	case uint:
+		userID = v
+	case int:
+		userID = uint(v)
+	case string:
+		uid, err := strconv.ParseUint(v, 10, 32)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid user ID in context"})
+			return
+		}
+		userID = uint(uid)
+	case float64:
+		userID = uint(v)
+	default:
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid user ID type in context"})
 		return
 	}
 
-	user, err := h.authService.GetUserProfile(uint(userID))
+	user, err := h.authService.GetUserProfile(userID)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
 		return
@@ -137,40 +127,31 @@ func (h *AuthHandler) GetProfile(c *gin.Context) {
 }
 
 func (h *AuthHandler) UpdateProfile(c *gin.Context) {
-	// Try to get user ID from context (JWT middleware) first
+	// ONLY get from context (JWT middleware) - NO FALLBACK for security
 	userIDInterface, exists := c.Get("user_id")
-	var userIDStr string
-
-	if exists {
-		// From context (JWT middleware)
-		switch v := userIDInterface.(type) {
-		case uint:
-			userIDStr = strconv.FormatUint(uint64(v), 10)
-		case int:
-			userIDStr = strconv.Itoa(v)
-		case string:
-			userIDStr = v
-		case float64:
-			userIDStr = strconv.FormatUint(uint64(v), 10)
-		default:
-			userIDStr = fmt.Sprintf("%v", v)
-		}
-	} else {
-		// Fallback: try header first, then query parameter
-		userIDStr = c.GetHeader("X-User-ID")
-		if userIDStr == "" {
-			userIDStr = c.Query("user_id")
-		}
-	}
-
-	if userIDStr == "" {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "User ID required"})
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Authentication required"})
 		return
 	}
 
-	userID, err := strconv.ParseUint(userIDStr, 10, 32)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
+	// Convert to uint with proper type checking
+	var userID uint
+	switch v := userIDInterface.(type) {
+	case uint:
+		userID = v
+	case int:
+		userID = uint(v)
+	case string:
+		uid, err := strconv.ParseUint(v, 10, 32)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid user ID in context"})
+			return
+		}
+		userID = uint(uid)
+	case float64:
+		userID = uint(v)
+	default:
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid user ID type in context"})
 		return
 	}
 
@@ -184,7 +165,7 @@ func (h *AuthHandler) UpdateProfile(c *gin.Context) {
 		return
 	}
 
-	user, err := h.authService.UpdateUserProfile(uint(userID), req.Name, req.Role)
+	user, err := h.authService.UpdateUserProfile(userID, req.Name, req.Role)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return

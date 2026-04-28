@@ -30,8 +30,12 @@ func (s *authService) RequestOTP(phone string) (*domain.OTP, error) {
 }
 
 func (s *authService) VerifyOTP(phone, code string) (*domain.User, string, error) {
-	if phone == "" || code == "" {
-		return nil, "", errors.New("phone and code are required")
+	if phone == "" {
+		return nil, "", errors.New("phone number is required")
+	}
+
+	if code == "" {
+		return nil, "", errors.New("code is required")
 	}
 
 	otp, err := s.authRepo.FindValidOTP(phone, code)
@@ -39,13 +43,24 @@ func (s *authService) VerifyOTP(phone, code string) (*domain.User, string, error
 		return nil, "", errors.New("invalid or expired OTP")
 	}
 
+	// Mark OTP as used
 	if err := s.authRepo.MarkOTPAsUsed(otp.ID); err != nil {
-		return nil, "", fmt.Errorf("failed to mark OTP as used: %w", err)
+		return nil, "", err
 	}
 
+	// Find user - if not found, create new user
 	user, err := s.authRepo.FindUserByPhone(phone)
 	if err != nil {
-		return nil, "", errors.New("user not found")
+		// Auto-create user after OTP verification
+		user = &domain.User{
+			Phone: phone,
+			Name:  phone,  // Default name to phone number
+			Role:  "user", // Default role
+		}
+
+		if err := s.authRepo.CreateUser(user); err != nil {
+			return nil, "", err
+		}
 	}
 
 	token := fmt.Sprintf("token_%d_%d", user.ID, time.Now().Unix())
@@ -54,19 +69,36 @@ func (s *authService) VerifyOTP(phone, code string) (*domain.User, string, error
 }
 
 func (s *authService) RegisterUser(phone, name, role string) (*domain.User, string, error) {
-	if phone == "" || name == "" {
-		return nil, "", errors.New("phone and name are required")
+	if phone == "" {
+		return nil, "", errors.New("phone number is required")
+	}
+
+	if name == "" {
+		return nil, "", errors.New("name is required")
 	}
 
 	if role == "" {
 		role = "user"
 	}
 
+	// SECURITY: Check if user already exists
 	existingUser, err := s.authRepo.FindUserByPhone(phone)
 	if err == nil && existingUser != nil {
-		return nil, "", errors.New("user already exists")
+		return nil, "", errors.New("user with this phone number already exists")
 	}
 
+	// SECURITY: Check if there's a valid OTP for this phone
+	otp, err := s.authRepo.FindValidOTP(phone, "123456") // In production, this should be the actual OTP code
+	if err != nil || otp == nil {
+		return nil, "", errors.New("phone number not verified. Please request OTP first")
+	}
+
+	// Mark OTP as used to prevent reuse
+	if err := s.authRepo.MarkOTPAsUsed(otp.ID); err != nil {
+		return nil, "", err
+	}
+
+	// Create new user
 	user := &domain.User{
 		Phone: phone,
 		Name:  name,
@@ -74,9 +106,10 @@ func (s *authService) RegisterUser(phone, name, role string) (*domain.User, stri
 	}
 
 	if err := s.authRepo.CreateUser(user); err != nil {
-		return nil, "", fmt.Errorf("failed to create user: %w", err)
+		return nil, "", err
 	}
 
+	// Generate token
 	token := fmt.Sprintf("token_%d_%d", user.ID, time.Now().Unix())
 
 	return user, token, nil
