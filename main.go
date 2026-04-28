@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+
 	"qflow/config"
 	"qflow/db"
 	"qflow/internal/domain"
@@ -43,7 +44,9 @@ func main() {
 	router.Setup(r, providerSvc, queueSvc, notificationSvc, authSvc, jwtManager, cfg.ExposeOTPInResponse())
 	swagger.Register(r)
 
-	r.Run(":" + cfg.Port)
+	if err := r.Run(":" + cfg.Port); err != nil {
+		log.Fatalf("failed to start server: %v", err)
+	}
 }
 
 func seedBootstrapUser(authRepo domain.AuthRepository, phone, name, role string) {

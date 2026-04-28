@@ -2,6 +2,7 @@ package service
 
 import (
 	"errors"
+
 	"qflow/internal/domain"
 
 	"gorm.io/gorm"
@@ -25,6 +26,8 @@ type queueService struct {
 func NewQueueService(repo domain.QueueRepository) domain.QueueService {
 	return &queueService{repo: repo}
 }
+
+// ===================== Queue Booking =====================
 
 func (s *queueService) BookQueue(userID, zoneID uint) (*domain.Queue, error) {
 	if userID == 0 {
@@ -101,9 +104,75 @@ func (s *queueService) CancelQueue(id, userID uint) error {
 	if queue.Status == "cancelled" {
 		return ErrQueueCancelled
 	}
-	if queue.Status == "completed" || queue.Status == "skipped" {
+	if queue.Status == "completed" || queue.Status == "skipped" || queue.Status == "called" {
 		return ErrQueueFinalized
 	}
 
 	return s.repo.UpdateStatus(id, "cancelled")
+}
+
+// ===================== Queue Management =====================
+
+func (s *queueService) GetQueuesByZone(zoneID uint) ([]domain.Queue, error) {
+	return s.repo.GetByZoneID(zoneID)
+}
+
+func (s *queueService) CallQueue(id uint) (*domain.Queue, error) {
+	queue, err := s.repo.FindByID(id)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrQueueNotFound
+		}
+		return nil, err
+	}
+	if queue.Status != "waiting" {
+		return nil, domain.ErrQueueCannotBeCalled
+	}
+
+	if err := s.repo.UpdateStatus(id, "called"); err != nil {
+		return nil, err
+	}
+
+	queue.Status = "called"
+	return queue, nil
+}
+
+func (s *queueService) CompleteQueue(id uint) (*domain.Queue, error) {
+	queue, err := s.repo.FindByID(id)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrQueueNotFound
+		}
+		return nil, err
+	}
+	if queue.Status != "called" {
+		return nil, domain.ErrQueueCannotBeCompleted
+	}
+
+	if err := s.repo.UpdateStatus(id, "completed"); err != nil {
+		return nil, err
+	}
+
+	queue.Status = "completed"
+	return queue, nil
+}
+
+func (s *queueService) SkipQueue(id uint) (*domain.Queue, error) {
+	queue, err := s.repo.FindByID(id)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrQueueNotFound
+		}
+		return nil, err
+	}
+	if queue.Status != "waiting" && queue.Status != "called" {
+		return nil, domain.ErrQueueCannotBeSkipped
+	}
+
+	if err := s.repo.UpdateStatus(id, "skipped"); err != nil {
+		return nil, err
+	}
+
+	queue.Status = "skipped"
+	return queue, nil
 }
