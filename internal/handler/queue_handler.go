@@ -21,14 +21,17 @@ func NewQueueHandler(svc domain.QueueService) *QueueHandler {
 func (h *QueueHandler) BookQueue(c *gin.Context) {
 	var body struct {
 		ZoneID uint `json:"zone_id" binding:"required"`
-		UserID uint `json:"user_id"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	userID := resolveUserID(c, body.UserID)
+	userID, ok := resolveRequiredUserID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		return
+	}
 	queue, err := h.svc.BookQueue(userID, body.ZoneID)
 	if err != nil {
 		switch {
@@ -55,7 +58,11 @@ func (h *QueueHandler) BookQueue(c *gin.Context) {
 }
 
 func (h *QueueHandler) GetHistory(c *gin.Context) {
-	userID := resolveUserID(c, parseOptionalUint(c.Query("user_id")))
+	userID, ok := resolveRequiredUserID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		return
+	}
 	queues, err := h.svc.GetQueueHistory(userID)
 	if err != nil {
 		if errors.Is(err, service.ErrInvalidUserID) {
@@ -75,13 +82,23 @@ func (h *QueueHandler) GetQueue(c *gin.Context) {
 		return
 	}
 
-	queue, err := h.svc.GetQueueByNumber(queueNumber)
+	userID, ok := resolveRequiredUserID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		return
+	}
+	queue, err := h.svc.GetQueueByNumber(queueNumber, userID)
 	if err != nil {
-		if errors.Is(err, service.ErrQueueNotFound) {
+		switch {
+		case errors.Is(err, service.ErrInvalidUserID):
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		case errors.Is(err, service.ErrQueueNotFound):
 			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
-			return
+		case errors.Is(err, service.ErrForbiddenQueue):
+			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+		default:
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -95,7 +112,11 @@ func (h *QueueHandler) CancelQueue(c *gin.Context) {
 		return
 	}
 
-	userID := resolveUserID(c, parseOptionalUint(c.Query("user_id")))
+	userID, ok := resolveRequiredUserID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		return
+	}
 	err = h.svc.CancelQueue(uint(id), userID)
 	if err != nil {
 		switch {
@@ -132,31 +153,25 @@ func (h *QueueHandler) SkipQueue(c *gin.Context) {
 	c.JSON(http.StatusNotImplemented, gin.H{"message": "not implemented"})
 }
 
-func resolveUserID(c *gin.Context, fallback uint) uint {
+func resolveRequiredUserID(c *gin.Context) (uint, bool) {
 	if userIDVal, exists := c.Get("user_id"); exists {
 		switch v := userIDVal.(type) {
 		case uint:
-			return v
+			return v, v > 0
 		case int:
 			if v > 0 {
-				return uint(v)
+				return uint(v), true
 			}
 		case float64:
 			if v > 0 {
-				return uint(v)
+				return uint(v), true
+			}
+		case string:
+			userID, err := strconv.ParseUint(v, 10, 64)
+			if err == nil && userID > 0 {
+				return uint(userID), true
 			}
 		}
 	}
-	return fallback
-}
-
-func parseOptionalUint(value string) uint {
-	if value == "" {
-		return 0
-	}
-	v, err := strconv.ParseUint(value, 10, 64)
-	if err != nil {
-		return 0
-	}
-	return uint(v)
+	return 0, false
 }

@@ -63,13 +63,20 @@ func (s *queueService) BookQueue(userID, zoneID uint) (*domain.Queue, error) {
 	return queue, nil
 }
 
-func (s *queueService) GetQueueByNumber(queueNumber int) (*domain.Queue, error) {
+func (s *queueService) GetQueueByNumber(queueNumber int, userID uint) (*domain.Queue, error) {
+	if userID == 0 {
+		return nil, ErrInvalidUserID
+	}
+
 	queue, err := s.repo.FindByQueueNumber(queueNumber)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrQueueNotFound
 		}
 		return nil, err
+	}
+	if queue.UserID != userID {
+		return nil, ErrForbiddenQueue
 	}
 	return queue, nil
 }

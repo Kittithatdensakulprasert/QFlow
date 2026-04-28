@@ -4,7 +4,7 @@ import "time"
 
 type Queue struct {
 	ID          uint      `gorm:"primaryKey" json:"id"`
-	QueueNumber int       `gorm:"not null" json:"queue_number"`
+	QueueNumber int       `gorm:"uniqueIndex;not null" json:"queue_number"`
 	ZoneID      uint      `gorm:"not null" json:"zone_id"`
 	Zone        Zone      `gorm:"foreignKey:ZoneID" json:"zone,omitempty"`
 	UserID      uint      `gorm:"not null" json:"user_id"`
@@ -26,7 +26,7 @@ type QueueRepository interface {
 
 type QueueService interface {
 	BookQueue(userID, zoneID uint) (*Queue, error)
-	GetQueueByNumber(queueNumber int) (*Queue, error)
+	GetQueueByNumber(queueNumber int, userID uint) (*Queue, error)
 	GetQueueHistory(userID uint) ([]Queue, error)
 	CancelQueue(id, userID uint) error
 }

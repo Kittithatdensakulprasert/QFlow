@@ -16,8 +16,9 @@ func Setup(
 	notificationSvc domain.NotificationService,
 	authSvc domain.AuthService,
 	jwtManager *jwt.JWTManager,
+	exposeOTPResponse bool,
 ) {
-	auth := handler.NewAuthHandler(authSvc)
+	auth := handler.NewAuthHandler(authSvc, exposeOTPResponse)
 	category := handler.NewCategoryHandler()
 	provider := handler.NewProviderHandler(providerSvc)
 	queue := handler.NewQueueHandler(queueSvc)
@@ -39,6 +40,10 @@ func Setup(
 	protected.POST("/notifications/send", notification.SendNotification)
 	protected.PATCH("/notifications/:id/read", notification.MarkNotificationRead)
 	protected.DELETE("/notifications/:id", notification.DeleteNotification)
+	protected.POST("/queues/book", queue.BookQueue)
+	protected.GET("/queues/history", queue.GetHistory)
+	protected.GET("/queues/:queueNumber", queue.GetQueue)
+	protected.PATCH("/queues/:id/cancel", queue.CancelQueue)
 
 	// Category
 	api.GET("/categories", category.GetCategories)
@@ -53,12 +58,6 @@ func Setup(
 	api.POST("/providers/:id/zones", provider.CreateZone)
 	api.GET("/providers/:id/zones", provider.GetZones)
 	api.PATCH("/zones/:id/toggle", provider.ToggleZone)
-
-	// Queue Booking
-	api.POST("/queues/book", queue.BookQueue)
-	api.GET("/queues/history", queue.GetHistory)
-	api.GET("/queues/:queueNumber", queue.GetQueue)
-	api.PATCH("/queues/:id/cancel", queue.CancelQueue)
 
 	// Queue Management
 	api.GET("/manage/queues/:zoneId", queue.GetQueuesByZone)

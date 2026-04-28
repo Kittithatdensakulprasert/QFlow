@@ -24,7 +24,7 @@ func (r *queueRepository) FindZoneByID(id uint) (*domain.Zone, error) {
 
 func (r *queueRepository) GetNextQueueNumber(zoneID uint) (int, error) {
 	var last domain.Queue
-	err := r.db.Where("zone_id = ?", zoneID).Order("queue_number desc").First(&last).Error
+	err := r.db.Order("queue_number desc").First(&last).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return 1, nil

@@ -33,7 +33,7 @@ func main() {
 	authSvc := service.NewAuthService(authRepo, jwtManager)
 
 	r := gin.Default()
-	router.Setup(r, providerSvc, queueSvc, notificationSvc, authSvc, jwtManager)
+	router.Setup(r, providerSvc, queueSvc, notificationSvc, authSvc, jwtManager, cfg.ExposeOTPInResponse())
 
 	r.Run(":" + cfg.Port)
 }

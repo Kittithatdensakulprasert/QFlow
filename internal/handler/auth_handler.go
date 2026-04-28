@@ -9,11 +9,12 @@ import (
 )
 
 type AuthHandler struct {
-	authService domain.AuthService
+	authService       domain.AuthService
+	exposeOTPResponse bool
 }
 
-func NewAuthHandler(authService domain.AuthService) *AuthHandler {
-	return &AuthHandler{authService: authService}
+func NewAuthHandler(authService domain.AuthService, exposeOTPResponse bool) *AuthHandler {
+	return &AuthHandler{authService: authService, exposeOTPResponse: exposeOTPResponse}
 }
 
 func (h *AuthHandler) RequestOTP(c *gin.Context) {
@@ -31,11 +32,14 @@ func (h *AuthHandler) RequestOTP(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"message":  "OTP sent successfully",
-		"otp_id":   otp.ID,
-		"otp_code": otp.Code,
-	})
+	response := gin.H{
+		"message": "OTP sent successfully",
+		"otp_id":  otp.ID,
+	}
+	if h.exposeOTPResponse {
+		response["otp_code"] = otp.Code
+	}
+	c.JSON(http.StatusOK, response)
 }
 
 func (h *AuthHandler) VerifyOTP(c *gin.Context) {
