@@ -76,7 +76,7 @@ func (m *mockProviderService) ToggleZone(id uint) (*domain.Zone, error) {
 			return &m.zones[i], nil
 		}
 	}
-	return nil, service.ErrZoneNotFound
+	return nil, service.ErrProviderZoneNotFound
 }
 
 func TestCreateProvider(t *testing.T) {

@@ -112,7 +112,7 @@ func (h *ProviderHandler) ToggleZone(c *gin.Context) {
 
 	zone, err := h.svc.ToggleZone(zoneID)
 	if err != nil {
-		if errors.Is(err, service.ErrZoneNotFound) {
+		if errors.Is(err, service.ErrProviderZoneNotFound) {
 			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
 			return
 		}

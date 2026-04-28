@@ -12,6 +12,7 @@ var (
 	ErrProviderNameRequired = errors.New("provider name is required")
 	ErrZoneNameRequired     = errors.New("zone name is required")
 	ErrProviderNotFound     = errors.New("provider not found")
+	ErrProviderZoneNotFound = errors.New("zone not found")
 )
 
 type providerService struct {
@@ -102,7 +103,7 @@ func (s *providerService) ToggleZone(id uint) (*domain.Zone, error) {
 	zone, err := s.repo.FindZoneByID(id)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, ErrZoneNotFound
+			return nil, ErrProviderZoneNotFound
 		}
 		return nil, err
 	}
