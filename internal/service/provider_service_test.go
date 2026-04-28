@@ -10,20 +10,22 @@ import (
 )
 
 type mockProviderRepo struct {
-	providers map[uint]domain.Provider
-	zones     map[uint]domain.Zone
-	queues    []domain.Queue
-	nextPID   uint
-	nextZID   uint
-	repoErr   error
+	providers  map[uint]domain.Provider
+	categories map[uint]domain.Category
+	zones      map[uint]domain.Zone
+	queues     []domain.Queue
+	nextPID    uint
+	nextZID    uint
+	repoErr    error
 }
 
 func newMockProviderRepo() *mockProviderRepo {
 	return &mockProviderRepo{
-		providers: map[uint]domain.Provider{},
-		zones:     map[uint]domain.Zone{},
-		nextPID:   1,
-		nextZID:   1,
+		providers:  map[uint]domain.Provider{},
+		categories: map[uint]domain.Category{},
+		zones:      map[uint]domain.Zone{},
+		nextPID:    1,
+		nextZID:    1,
 	}
 }
 
@@ -46,6 +48,17 @@ func (m *mockProviderRepo) FindProviders() ([]domain.Provider, error) {
 		result = append(result, provider)
 	}
 	return result, nil
+}
+
+func (m *mockProviderRepo) FindCategoryByID(id uint) (*domain.Category, error) {
+	if m.repoErr != nil {
+		return nil, m.repoErr
+	}
+	category, ok := m.categories[id]
+	if !ok {
+		return nil, gorm.ErrRecordNotFound
+	}
+	return &category, nil
 }
 
 func (m *mockProviderRepo) FindProviderByID(id uint) (*domain.Provider, error) {
@@ -116,6 +129,7 @@ func (m *mockProviderRepo) CountQueuesByZoneID(zoneID uint) (int, error) {
 
 func TestProviderServiceCreateProvider(t *testing.T) {
 	repo := newMockProviderRepo()
+	repo.categories[1] = domain.Category{ID: 1, Name: "Clinic"}
 	svc := service.NewProviderService(repo)
 
 	provider, err := svc.CreateProvider(" Bangkok Clinic ", 1)
@@ -124,6 +138,16 @@ func TestProviderServiceCreateProvider(t *testing.T) {
 	}
 	if provider.ID == 0 || provider.Name != "Bangkok Clinic" || provider.CategoryID == nil || *provider.CategoryID != 1 {
 		t.Fatalf("unexpected provider: %+v", provider)
+	}
+}
+
+func TestProviderServiceCreateProviderRequiresExistingCategory(t *testing.T) {
+	repo := newMockProviderRepo()
+	svc := service.NewProviderService(repo)
+
+	_, err := svc.CreateProvider("Bangkok Clinic", 99)
+	if !errors.Is(err, service.ErrProviderCategoryNotFound) {
+		t.Fatalf("expected category not found error, got %v", err)
 	}
 }
 

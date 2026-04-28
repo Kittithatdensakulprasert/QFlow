@@ -24,6 +24,15 @@ func (r *providerRepository) FindProviders() ([]domain.Provider, error) {
 	return providers, err
 }
 
+func (r *providerRepository) FindCategoryByID(id uint) (*domain.Category, error) {
+	var category domain.Category
+	err := r.db.First(&category, id).Error
+	if err != nil {
+		return nil, err
+	}
+	return &category, nil
+}
+
 func (r *providerRepository) FindProviderByID(id uint) (*domain.Provider, error) {
 	var provider domain.Provider
 	err := r.db.First(&provider, id).Error

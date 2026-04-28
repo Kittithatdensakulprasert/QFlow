@@ -25,6 +25,7 @@ type Zone struct {
 type ProviderRepository interface {
 	CreateProvider(provider *Provider) error
 	FindProviders() ([]Provider, error)
+	FindCategoryByID(id uint) (*Category, error)
 	FindProviderByID(id uint) (*Provider, error)
 	CreateZone(zone *Zone) error
 	FindZonesByProviderID(providerID uint) ([]Zone, error)

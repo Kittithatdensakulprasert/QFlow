@@ -36,11 +36,14 @@ func (h *ProviderHandler) CreateProvider(c *gin.Context) {
 
 	provider, err := h.svc.CreateProvider(req.Name, req.CategoryID)
 	if err != nil {
-		if errors.Is(err, service.ErrProviderNameRequired) {
+		switch {
+		case errors.Is(err, service.ErrProviderNameRequired):
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
+		case errors.Is(err, service.ErrProviderCategoryNotFound):
+			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		default:
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 

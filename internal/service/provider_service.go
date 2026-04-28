@@ -9,10 +9,11 @@ import (
 )
 
 var (
-	ErrProviderNameRequired = errors.New("provider name is required")
-	ErrZoneNameRequired     = errors.New("zone name is required")
-	ErrProviderNotFound     = errors.New("provider not found")
-	ErrProviderZoneNotFound = errors.New("zone not found")
+	ErrProviderNameRequired     = errors.New("provider name is required")
+	ErrZoneNameRequired         = errors.New("zone name is required")
+	ErrProviderCategoryNotFound = errors.New("category not found")
+	ErrProviderNotFound         = errors.New("provider not found")
+	ErrProviderZoneNotFound     = errors.New("zone not found")
 )
 
 type providerService struct {
@@ -31,6 +32,12 @@ func (s *providerService) CreateProvider(name string, categoryID uint) (*domain.
 
 	provider := &domain.Provider{Name: name}
 	if categoryID > 0 {
+		if _, err := s.repo.FindCategoryByID(categoryID); err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return nil, ErrProviderCategoryNotFound
+			}
+			return nil, err
+		}
 		provider.CategoryID = &categoryID
 	}
 	if err := s.repo.CreateProvider(provider); err != nil {

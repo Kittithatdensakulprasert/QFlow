@@ -98,6 +98,17 @@ func TestCreateProvider(t *testing.T) {
 	}
 }
 
+func TestCreateProviderWithMissingCategory(t *testing.T) {
+	router, svc := setupProviderTestRouter()
+	svc.err = service.ErrProviderCategoryNotFound
+
+	res := performProviderRequest(router, http.MethodPost, "/api/providers", `{"name":"Bangkok Clinic","category_id":99}`)
+
+	if res.Code != http.StatusNotFound {
+		t.Fatalf("expected status %d, got %d", http.StatusNotFound, res.Code)
+	}
+}
+
 func TestGetProviders(t *testing.T) {
 	router, svc := setupProviderTestRouter()
 	svc.providers = append(svc.providers, domain.Provider{ID: 1, Name: "Bangkok Clinic"})
