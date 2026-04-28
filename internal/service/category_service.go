@@ -55,11 +55,13 @@ func (s *categoryService) CreateCategory(ctx context.Context, name string) (*dom
 		return nil, ErrCategoryDuplicate
 	}
 
-	category := &domain.Category{
-		Name: name,
-	}
+	category := &domain.Category{Name: name}
 
 	if err := s.repo.Create(ctx, category); err != nil {
+		if errors.Is(err, repository.ErrCategoryDuplicate) {
+			return nil, ErrCategoryDuplicate
+		}
+
 		return nil, err
 	}
 
@@ -96,6 +98,10 @@ func (s *categoryService) UpdateCategory(ctx context.Context, id uint, name stri
 	category.Name = name
 
 	if err := s.repo.Update(ctx, category); err != nil {
+		if errors.Is(err, repository.ErrCategoryDuplicate) {
+			return nil, ErrCategoryDuplicate
+		}
+
 		return nil, err
 	}
 
