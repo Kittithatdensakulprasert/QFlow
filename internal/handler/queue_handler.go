@@ -21,13 +21,14 @@ func NewQueueHandler(svc domain.QueueService) *QueueHandler {
 func (h *QueueHandler) BookQueue(c *gin.Context) {
 	var body struct {
 		ZoneID uint `json:"zone_id" binding:"required"`
+		UserID uint `json:"user_id"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	userID := resolveUserID(c)
+	userID := resolveUserID(c, body.UserID)
 	queue, err := h.svc.BookQueue(userID, body.ZoneID)
 	if err != nil {
 		switch {
@@ -54,7 +55,7 @@ func (h *QueueHandler) BookQueue(c *gin.Context) {
 }
 
 func (h *QueueHandler) GetHistory(c *gin.Context) {
-	userID := resolveUserID(c)
+	userID := resolveUserID(c, parseOptionalUint(c.Query("user_id")))
 	queues, err := h.svc.GetQueueHistory(userID)
 	if err != nil {
 		if errors.Is(err, service.ErrInvalidUserID) {
@@ -83,6 +84,16 @@ func (h *QueueHandler) GetQueue(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+
+	requestUserID := resolveUserID(c, parseOptionalUint(c.Query("user_id")))
+	if requestUserID == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "user_id is required"})
+		return
+	}
+	if queue.UserID != requestUserID {
+		c.JSON(http.StatusForbidden, gin.H{"error": "queue does not belong to user"})
+		return
+	}
 	c.JSON(http.StatusOK, queue)
 }
 
@@ -93,7 +104,7 @@ func (h *QueueHandler) CancelQueue(c *gin.Context) {
 		return
 	}
 
-	userID := resolveUserID(c)
+	userID := resolveUserID(c, parseOptionalUint(c.Query("user_id")))
 	err = h.svc.CancelQueue(uint(id), userID)
 	if err != nil {
 		switch {
@@ -130,7 +141,7 @@ func (h *QueueHandler) SkipQueue(c *gin.Context) {
 	c.JSON(http.StatusNotImplemented, gin.H{"message": "not implemented"})
 }
 
-func resolveUserID(c *gin.Context) uint {
+func resolveUserID(c *gin.Context, fallback uint) uint {
 	if userIDVal, exists := c.Get("user_id"); exists {
 		switch v := userIDVal.(type) {
 		case uint:
@@ -145,5 +156,16 @@ func resolveUserID(c *gin.Context) uint {
 			}
 		}
 	}
-	return 0
+	return fallback
+}
+
+func parseOptionalUint(value string) uint {
+	if value == "" {
+		return 0
+	}
+	v, err := strconv.ParseUint(value, 10, 64)
+	if err != nil {
+		return 0
+	}
+	return uint(v)
 }
