@@ -126,12 +126,7 @@ QFlow/
 | `PATCH` | `/api/queues/:id/cancel` | ยกเลิกคิว | User |
 
 ### Queue Management Module (4 endpoints)
-| Method | Endpoint | คำอธิบาย | Role |
-|--------|----------|----------|------|
-| `GET` | `/api/manage/queues/:zoneId` | ดูรายการคิวทั้งหมดในโซน | Provider |
-| `PATCH` | `/api/manage/queues/:id/call` | เรียกคิว + แจ้งเตือน | Provider |
-| `PATCH` | `/api/manage/queues/:id/complete` | ปิดคิว (เสร็จสิ้น) | Provider |
-| `PATCH` | `/api/manage/queues/:id/skip` | ข้ามคิว | Provider |
+> หมายเหตุ: endpoint ชุดนี้อยู่ในงานของ `feature/queue-management` และยังไม่ถูกรวมใน branch `feature/queue-booking`
 
 ### Notification Module (4 endpoints)
 | Method | Endpoint | คำอธิบาย | Role |
