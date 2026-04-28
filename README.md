@@ -152,14 +152,14 @@ QFlow/
 ```env
 PORT=3000
 DATABASE_URL=postgres://user:password@localhost:5432/qflow
-JWT_SECRET=replace-with-a-long-random-jwt-secret-for-local-dev
+JWT_SECRET=
 BOOTSTRAP_ADMIN_PHONE=
 BOOTSTRAP_ADMIN_NAME=Bootstrap Admin
 BOOTSTRAP_PROVIDER_PHONE=
 BOOTSTRAP_PROVIDER_NAME=Bootstrap Provider
 ```
 
-`JWT_SECRET` ต้องไม่เป็นค่า default เช่น `secret` หรือ `your-secret-key-here` เพราะระบบจะไม่ start ถ้าใช้ค่าที่ไม่ปลอดภัย
+`JWT_SECRET` ต้องตั้งเป็นค่าสุ่มจริงที่ยาวพอ และต้องไม่เป็นค่า default เช่น `secret` หรือ `your-secret-key-here` เพราะระบบจะไม่ start ถ้าใช้ค่าที่ไม่ปลอดภัย
 
 ถ้าต้องทดสอบ endpoint ที่ต้องใช้ role `admin` หรือ `provider` ให้กำหนด `BOOTSTRAP_ADMIN_PHONE` หรือ `BOOTSTRAP_PROVIDER_PHONE` ก่อน start app จากนั้นเรียก `/api/auth/request-otp` และ `/api/auth/verify-otp` ด้วยเบอร์นั้นเพื่อรับ JWT ที่มี role ตามที่ bootstrap ไว้
 
