@@ -63,6 +63,7 @@ type openAPIResponse struct {
 
 type openAPIComponents struct {
 	SecuritySchemes map[string]openAPISecurityScheme `json:"securitySchemes"`
+	Schemas         map[string]openAPISchema         `json:"schemas"`
 }
 
 type openAPISecurityScheme struct {
@@ -72,8 +73,12 @@ type openAPISecurityScheme struct {
 }
 
 type openAPISchema struct {
+	Ref                  string                   `json:"$ref,omitempty"`
 	Type                 string                   `json:"type,omitempty"`
 	Format               string                   `json:"format,omitempty"`
+	Required             []string                 `json:"required,omitempty"`
+	Enum                 []string                 `json:"enum,omitempty"`
+	Items                *openAPISchema           `json:"items,omitempty"`
 	AdditionalProperties *openAPISchema           `json:"additionalProperties,omitempty"`
 	Properties           map[string]openAPISchema `json:"properties,omitempty"`
 }
@@ -119,12 +124,8 @@ func buildDocument(r *gin.Engine, host string) openAPIDocument {
 			Summary:     summaryForRoute(route.Method, path),
 			OperationID: operationID(route.Method, path),
 			Parameters:  parametersForPath(path),
-			RequestBody: requestBodyForMethod(route.Method),
-			Responses: map[string]openAPIResponse{
-				"200": responseWithJSON("Successful response"),
-				"400": responseWithJSON("Bad request"),
-				"500": responseWithJSON("Internal server error"),
-			},
+			RequestBody: requestBodyForRoute(route.Method, path),
+			Responses:   responsesForRoute(route.Method, path),
 		}
 	}
 
@@ -147,6 +148,7 @@ func buildDocument(r *gin.Engine, host string) openAPIDocument {
 					BearerFormat: "JWT",
 				},
 			},
+			Schemas: componentSchemas(),
 		},
 	}
 }
@@ -195,49 +197,260 @@ func parametersForPath(path string) []openAPIParameter {
 				In:          "path",
 				Required:    true,
 				Description: "Path parameter: " + name,
-				Schema:      openAPISchema{Type: schemaTypeForParameter(name)},
+				Schema:      schemaForParameter(name),
 			})
 		}
 	}
 	return params
 }
 
-func schemaTypeForParameter(name string) string {
-	if strings.Contains(strings.ToLower(name), "number") {
-		return "integer"
+func schemaForParameter(name string) openAPISchema {
+	normalized := strings.ToLower(name)
+	switch {
+	case strings.Contains(normalized, "number"):
+		return openAPISchema{Type: "integer", Format: "int32"}
+	case strings.HasSuffix(normalized, "id") || normalized == "id":
+		return openAPISchema{Type: "integer", Format: "uint"}
+	default:
+		return openAPISchema{Type: "string"}
 	}
-	return "integer"
 }
 
-func requestBodyForMethod(method string) *openAPIRequestBody {
+func requestBodyForRoute(method, path string) *openAPIRequestBody {
+	if routeHasNoBody(method, path) {
+		return nil
+	}
+
+	if schema, ok := requestSchemaForRoute(method, path); ok {
+		return jsonRequestBody(schema)
+	}
+
 	switch method {
 	case http.MethodPost, http.MethodPut, http.MethodPatch:
-		return &openAPIRequestBody{
-			Required: true,
-			Content: map[string]openAPIMediaSchema{
-				"application/json": {
-					Schema: openAPISchema{
-						Type:                 "object",
-						AdditionalProperties: &openAPISchema{},
-					},
-				},
-			},
-		}
+		return jsonRequestBody(freeFormObjectSchema())
 	default:
 		return nil
 	}
 }
 
-func responseWithJSON(description string) openAPIResponse {
+func requestSchemaForRoute(method, path string) (openAPISchema, bool) {
+	schemas := map[string]openAPISchema{
+		"POST /api/auth/request-otp":     schemaRef("RequestOTPRequest"),
+		"POST /api/auth/verify-otp":      schemaRef("VerifyOTPRequest"),
+		"POST /api/auth/register":        schemaRef("RegisterRequest"),
+		"PUT /api/auth/me":               schemaRef("UpdateProfileRequest"),
+		"POST /api/categories":           schemaRef("CategoryRequest"),
+		"PUT /api/categories/{id}":       schemaRef("CategoryRequest"),
+		"POST /api/providers":            schemaRef("CreateProviderRequest"),
+		"POST /api/providers/{id}/zones": schemaRef("CreateZoneRequest"),
+		"POST /api/queues/book":          schemaRef("BookQueueRequest"),
+		"POST /api/notifications/send":   schemaRef("SendNotificationRequest"),
+	}
+
+	schema, ok := schemas[method+" "+path]
+	if !ok {
+		return openAPISchema{}, false
+	}
+	return schema, true
+}
+
+func routeHasNoBody(method, path string) bool {
+	noBodyRoutes := map[string]struct{}{
+		"PATCH /api/zones/{id}/toggle":           {},
+		"PATCH /api/queues/{id}/cancel":          {},
+		"PATCH /api/manage/queues/{id}/call":     {},
+		"PATCH /api/manage/queues/{id}/complete": {},
+		"PATCH /api/manage/queues/{id}/skip":     {},
+		"PATCH /api/notifications/{id}/read":     {},
+		"DELETE /api/categories/{id}":            {},
+		"DELETE /api/notifications/{id}":         {},
+	}
+	_, ok := noBodyRoutes[method+" "+path]
+	return ok
+}
+
+func responsesForRoute(method, path string) map[string]openAPIResponse {
+	successStatus := "200"
+	if method == http.MethodPost {
+		successStatus = "201"
+	}
+	if method == http.MethodDelete {
+		successStatus = "204"
+	}
+
+	responses := map[string]openAPIResponse{
+		successStatus: jsonResponse("Successful response", responseSchemaForRoute(method, path)),
+		"400":         jsonResponse("Bad request", schemaRef("ErrorResponse")),
+		"500":         jsonResponse("Internal server error", schemaRef("ErrorResponse")),
+	}
+	if method == http.MethodDelete {
+		responses[successStatus] = openAPIResponse{Description: "Deleted successfully"}
+	}
+	return responses
+}
+
+func responseSchemaForRoute(method, path string) openAPISchema {
+	schemas := map[string]openAPISchema{
+		"GET /api/categories":                arraySchema(schemaRef("Category")),
+		"GET /api/categories/{id}":           schemaRef("Category"),
+		"POST /api/categories":               schemaRef("Category"),
+		"PUT /api/categories/{id}":           schemaRef("Category"),
+		"GET /api/providers":                 arraySchema(schemaRef("Provider")),
+		"POST /api/providers":                schemaRef("Provider"),
+		"GET /api/providers/{id}/zones":      arraySchema(schemaRef("Zone")),
+		"POST /api/providers/{id}/zones":     schemaRef("Zone"),
+		"PATCH /api/zones/{id}/toggle":       schemaRef("Zone"),
+		"POST /api/queues/book":              schemaRef("Queue"),
+		"GET /api/queues/{queueNumber}":      schemaRef("Queue"),
+		"GET /api/queues/history":            arraySchema(schemaRef("Queue")),
+		"GET /api/notifications":             arraySchema(schemaRef("Notification")),
+		"POST /api/notifications/send":       schemaRef("Notification"),
+		"POST /api/auth/request-otp":         schemaRef("MessageResponse"),
+		"POST /api/auth/verify-otp":          schemaRef("AuthTokenResponse"),
+		"POST /api/auth/register":            schemaRef("User"),
+		"GET /api/auth/me":                   schemaRef("User"),
+		"PUT /api/auth/me":                   schemaRef("User"),
+		"PATCH /api/queues/{id}/cancel":      schemaRef("MessageResponse"),
+		"PATCH /api/notifications/{id}/read": schemaRef("MessageResponse"),
+	}
+
+	if schema, ok := schemas[method+" "+path]; ok {
+		return schema
+	}
+	return freeFormObjectSchema()
+}
+
+func jsonRequestBody(schema openAPISchema) *openAPIRequestBody {
+	return &openAPIRequestBody{
+		Required: true,
+		Content: map[string]openAPIMediaSchema{
+			"application/json": {Schema: schema},
+		},
+	}
+}
+
+func jsonResponse(description string, schema openAPISchema) openAPIResponse {
 	return openAPIResponse{
 		Description: description,
 		Content: map[string]openAPIMediaSchema{
-			"application/json": {
-				Schema: openAPISchema{
-					Type:                 "object",
-					AdditionalProperties: &openAPISchema{},
-				},
-			},
+			"application/json": {Schema: schema},
 		},
 	}
+}
+
+func schemaRef(name string) openAPISchema {
+	return openAPISchema{Ref: "#/components/schemas/" + name}
+}
+
+func arraySchema(item openAPISchema) openAPISchema {
+	return openAPISchema{Type: "array", Items: &item}
+}
+
+func freeFormObjectSchema() openAPISchema {
+	return openAPISchema{
+		Type:                 "object",
+		AdditionalProperties: &openAPISchema{},
+	}
+}
+
+func componentSchemas() map[string]openAPISchema {
+	return map[string]openAPISchema{
+		"RequestOTPRequest": objectSchema([]string{"phone"}, map[string]openAPISchema{
+			"phone": {Type: "string"},
+		}),
+		"VerifyOTPRequest": objectSchema([]string{"phone", "code"}, map[string]openAPISchema{
+			"phone": {Type: "string"},
+			"code":  {Type: "string"},
+		}),
+		"RegisterRequest": objectSchema([]string{"phone", "name"}, map[string]openAPISchema{
+			"phone": {Type: "string"},
+			"name":  {Type: "string"},
+			"role":  {Type: "string", Enum: []string{"user", "provider", "admin"}},
+		}),
+		"UpdateProfileRequest": objectSchema(nil, map[string]openAPISchema{
+			"name": {Type: "string"},
+		}),
+		"CategoryRequest": objectSchema([]string{"name"}, map[string]openAPISchema{
+			"name": {Type: "string"},
+		}),
+		"CreateProviderRequest": objectSchema([]string{"name"}, map[string]openAPISchema{
+			"name":        {Type: "string"},
+			"category_id": {Type: "integer", Format: "uint"},
+		}),
+		"CreateZoneRequest": objectSchema([]string{"name"}, map[string]openAPISchema{
+			"name": {Type: "string"},
+		}),
+		"BookQueueRequest": objectSchema([]string{"zone_id"}, map[string]openAPISchema{
+			"zone_id": {Type: "integer", Format: "uint"},
+			"user_id": {Type: "integer", Format: "uint"},
+		}),
+		"SendNotificationRequest": objectSchema([]string{"user_id", "message"}, map[string]openAPISchema{
+			"user_id": {Type: "integer", Format: "uint"},
+			"message": {Type: "string"},
+		}),
+		"Category": objectSchema(nil, timestampedProperties(map[string]openAPISchema{
+			"id":   {Type: "integer", Format: "uint"},
+			"name": {Type: "string"},
+		})),
+		"Provider": objectSchema(nil, timestampedProperties(map[string]openAPISchema{
+			"id":          {Type: "integer", Format: "uint"},
+			"name":        {Type: "string"},
+			"category_id": {Type: "integer", Format: "uint"},
+			"category":    schemaRef("Category"),
+			"zones":       arraySchema(schemaRef("Zone")),
+		})),
+		"Zone": objectSchema(nil, timestampedProperties(map[string]openAPISchema{
+			"id":          {Type: "integer", Format: "uint"},
+			"provider_id": {Type: "integer", Format: "uint"},
+			"name":        {Type: "string"},
+			"is_open":     {Type: "boolean"},
+			"queue_count": {Type: "integer", Format: "int32"},
+		})),
+		"Queue": objectSchema(nil, timestampedProperties(map[string]openAPISchema{
+			"id":           {Type: "integer", Format: "uint"},
+			"queue_number": {Type: "integer", Format: "int32"},
+			"zone_id":      {Type: "integer", Format: "uint"},
+			"user_id":      {Type: "integer", Format: "uint"},
+			"status":       {Type: "string", Enum: []string{"waiting", "called", "completed", "skipped", "cancelled"}},
+		})),
+		"Notification": objectSchema(nil, timestampedProperties(map[string]openAPISchema{
+			"id":      {Type: "integer", Format: "uint"},
+			"user_id": {Type: "integer", Format: "uint"},
+			"message": {Type: "string"},
+			"is_read": {Type: "boolean"},
+		})),
+		"User": objectSchema(nil, timestampedProperties(map[string]openAPISchema{
+			"id":    {Type: "integer", Format: "uint"},
+			"phone": {Type: "string"},
+			"name":  {Type: "string"},
+			"role":  {Type: "string", Enum: []string{"user", "provider", "admin"}},
+		})),
+		"AuthTokenResponse": objectSchema(nil, map[string]openAPISchema{
+			"token": {Type: "string"},
+			"user":  schemaRef("User"),
+		}),
+		"MessageResponse": objectSchema(nil, map[string]openAPISchema{
+			"message": {Type: "string"},
+		}),
+		"ErrorResponse": objectSchema(nil, map[string]openAPISchema{
+			"status":  {Type: "integer", Format: "int32"},
+			"error":   {Type: "string"},
+			"message": {Type: "string"},
+			"path":    {Type: "string"},
+		}),
+	}
+}
+
+func objectSchema(required []string, properties map[string]openAPISchema) openAPISchema {
+	return openAPISchema{
+		Type:       "object",
+		Required:   required,
+		Properties: properties,
+	}
+}
+
+func timestampedProperties(properties map[string]openAPISchema) map[string]openAPISchema {
+	properties["created_at"] = openAPISchema{Type: "string", Format: "date-time"}
+	properties["updated_at"] = openAPISchema{Type: "string", Format: "date-time"}
+	return properties
 }

@@ -27,10 +27,35 @@ func TestBuildDocumentUsesRegisteredGinRoutes(t *testing.T) {
 }
 
 func TestRequestBodyOnlyAddedForBodyMethods(t *testing.T) {
-	require.Nil(t, requestBodyForMethod(http.MethodGet))
-	require.NotNil(t, requestBodyForMethod(http.MethodPost))
-	require.NotNil(t, requestBodyForMethod(http.MethodPut))
-	require.NotNil(t, requestBodyForMethod(http.MethodPatch))
+	require.Nil(t, requestBodyForRoute(http.MethodGet, "/api/categories"))
+	require.NotNil(t, requestBodyForRoute(http.MethodPost, "/api/providers"))
+	require.NotNil(t, requestBodyForRoute(http.MethodPut, "/api/categories/{id}"))
+	require.Nil(t, requestBodyForRoute(http.MethodPatch, "/api/zones/{id}/toggle"))
+	require.NotNil(t, requestBodyForRoute(http.MethodPatch, "/api/example"))
+}
+
+func TestKnownRouteUsesDetailedRequestSchema(t *testing.T) {
+	body := requestBodyForRoute(http.MethodPost, "/api/providers")
+
+	require.NotNil(t, body)
+	require.Equal(t, "#/components/schemas/CreateProviderRequest", body.Content["application/json"].Schema.Ref)
+}
+
+func TestPathParameterSchemaDetection(t *testing.T) {
+	idSchema := schemaForParameter("id")
+	require.Equal(t, "integer", idSchema.Type)
+	require.Equal(t, "uint", idSchema.Format)
+
+	zoneIDSchema := schemaForParameter("zoneId")
+	require.Equal(t, "integer", zoneIDSchema.Type)
+	require.Equal(t, "uint", zoneIDSchema.Format)
+
+	queueNumberSchema := schemaForParameter("queueNumber")
+	require.Equal(t, "integer", queueNumberSchema.Type)
+	require.Equal(t, "int32", queueNumberSchema.Format)
+
+	slugSchema := schemaForParameter("slug")
+	require.Equal(t, "string", slugSchema.Type)
 }
 
 func TestRegisterServesSwaggerEndpoints(t *testing.T) {
@@ -44,6 +69,8 @@ func TestRegisterServesSwaggerEndpoints(t *testing.T) {
 	r.ServeHTTP(docRecorder, docRequest)
 	require.Equal(t, http.StatusOK, docRecorder.Code)
 	require.Contains(t, docRecorder.Body.String(), "/api/categories")
+	require.Contains(t, docRecorder.Body.String(), "components")
+	require.Contains(t, docRecorder.Body.String(), "ErrorResponse")
 
 	uiRecorder := httptest.NewRecorder()
 	uiRequest := httptest.NewRequest(http.MethodGet, "/swagger/index.html", nil)
