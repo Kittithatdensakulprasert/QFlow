@@ -8,10 +8,10 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func Setup(r *gin.Engine, queueSvc domain.QueueService, notificationSvc domain.NotificationService, jwtSecret string) {
+func Setup(r *gin.Engine, providerSvc domain.ProviderService, queueSvc domain.QueueService, notificationSvc domain.NotificationService, jwtSecret string) {
 	auth := handler.NewAuthHandler()
 	category := handler.NewCategoryHandler()
-	provider := handler.NewProviderHandler()
+	provider := handler.NewProviderHandler(providerSvc)
 	queue := handler.NewQueueHandler(queueSvc)
 	notification := handler.NewNotificationHandler(notificationSvc)
 

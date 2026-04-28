@@ -16,13 +16,15 @@ func main() {
 	database := db.Connect(cfg.DSN)
 	db.Migrate(database)
 
+	providerRepo := repository.NewProviderRepository(database)
+	providerSvc := service.NewProviderService(providerRepo)
 	queueRepo := repository.NewQueueRepository(database)
 	queueSvc := service.NewQueueService(queueRepo)
 	notificationRepo := repository.NewNotificationRepository(database)
 	notificationSvc := service.NewNotificationService(notificationRepo)
 
 	r := gin.Default()
-	router.Setup(r, queueSvc, notificationSvc, cfg.JWTSecret)
+	router.Setup(r, providerSvc, queueSvc, notificationSvc, cfg.JWTSecret)
 
 	r.Run(":" + cfg.Port)
 }
