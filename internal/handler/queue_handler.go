@@ -21,14 +21,13 @@ func NewQueueHandler(svc domain.QueueService) *QueueHandler {
 func (h *QueueHandler) BookQueue(c *gin.Context) {
 	var body struct {
 		ZoneID uint `json:"zone_id" binding:"required"`
-		UserID uint `json:"user_id"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	userID := resolveUserID(c, body.UserID)
+	userID := resolveUserID(c)
 	queue, err := h.svc.BookQueue(userID, body.ZoneID)
 	if err != nil {
 		switch {
@@ -55,7 +54,7 @@ func (h *QueueHandler) BookQueue(c *gin.Context) {
 }
 
 func (h *QueueHandler) GetHistory(c *gin.Context) {
-	userID := resolveUserID(c, parseOptionalUint(c.Query("user_id")))
+	userID := resolveUserID(c)
 	queues, err := h.svc.GetQueueHistory(userID)
 	if err != nil {
 		if errors.Is(err, service.ErrInvalidUserID) {
@@ -94,7 +93,7 @@ func (h *QueueHandler) CancelQueue(c *gin.Context) {
 		return
 	}
 
-	userID := resolveUserID(c, parseOptionalUint(c.Query("user_id")))
+	userID := resolveUserID(c)
 	err = h.svc.CancelQueue(uint(id), userID)
 	if err != nil {
 		switch {
@@ -131,8 +130,8 @@ func (h *QueueHandler) SkipQueue(c *gin.Context) {
 	c.JSON(http.StatusNotImplemented, gin.H{"message": "not implemented"})
 }
 
-func resolveUserID(c *gin.Context, fallback uint) uint {
-	if userIDVal, exists := c.Get("userID"); exists {
+func resolveUserID(c *gin.Context) uint {
+	if userIDVal, exists := c.Get("user_id"); exists {
 		switch v := userIDVal.(type) {
 		case uint:
 			return v
@@ -144,20 +143,7 @@ func resolveUserID(c *gin.Context, fallback uint) uint {
 			if v > 0 {
 				return uint(v)
 			}
-		case string:
-			return parseOptionalUint(v)
 		}
 	}
-	return fallback
-}
-
-func parseOptionalUint(value string) uint {
-	if value == "" {
-		return 0
-	}
-	v, err := strconv.ParseUint(value, 10, 64)
-	if err != nil {
-		return 0
-	}
-	return uint(v)
+	return 0
 }

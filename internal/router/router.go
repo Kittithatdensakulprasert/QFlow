@@ -3,6 +3,7 @@ package router
 import (
 	"qflow/internal/domain"
 	"qflow/internal/handler"
+	"qflow/internal/middleware"
 
 	"github.com/gin-gonic/gin"
 )
@@ -16,12 +17,25 @@ func Setup(r *gin.Engine, queueSvc domain.QueueService, notificationSvc domain.N
 
 	api := r.Group("/api")
 
+	protected := api.Group("/")
+	protected.Use(middleware.JWTAuth())
+
+	protected.GET("/auth/me", auth.GetProfile)
+	protected.PUT("/auth/me", auth.UpdateProfile)
+
+	protected.POST("/queues/book", queue.BookQueue)
+	protected.GET("/queues/history", queue.GetHistory)
+	protected.GET("/queues/:queueNumber", queue.GetQueue)
+	protected.PATCH("/queues/:id/cancel", queue.CancelQueue)
+
+	protected.GET("/notifications", notification.GetNotifications)
+	protected.PATCH("/notifications/:id/read", notification.MarkNotificationRead)
+	protected.DELETE("/notifications/:id", notification.DeleteNotification)
+
 	// Auth
 	api.POST("/auth/request-otp", auth.RequestOTP)
 	api.POST("/auth/verify-otp", auth.VerifyOTP)
 	api.POST("/auth/register", auth.Register)
-	api.GET("/auth/me", auth.GetProfile)
-	api.PUT("/auth/me", auth.UpdateProfile)
 
 	// Category
 	api.GET("/categories", category.GetCategories)
@@ -37,12 +51,6 @@ func Setup(r *gin.Engine, queueSvc domain.QueueService, notificationSvc domain.N
 	api.GET("/providers/:id/zones", provider.GetZones)
 	api.PATCH("/zones/:id/toggle", provider.ToggleZone)
 
-	// Queue Booking
-	api.POST("/queues/book", queue.BookQueue)
-	api.GET("/queues/history", queue.GetHistory)
-	api.GET("/queues/:queueNumber", queue.GetQueue)
-	api.PATCH("/queues/:id/cancel", queue.CancelQueue)
-
 	// Queue Management
 	api.GET("/manage/queues/:zoneId", queue.GetQueuesByZone)
 	api.PATCH("/manage/queues/:id/call", queue.CallQueue)
@@ -50,8 +58,5 @@ func Setup(r *gin.Engine, queueSvc domain.QueueService, notificationSvc domain.N
 	api.PATCH("/manage/queues/:id/skip", queue.SkipQueue)
 
 	// Notification
-	api.GET("/notifications", notification.GetNotifications)
 	api.POST("/notifications/send", notification.SendNotification)
-	api.PATCH("/notifications/:id/read", notification.MarkNotificationRead)
-	api.DELETE("/notifications/:id", notification.DeleteNotification)
 }
