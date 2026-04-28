@@ -74,7 +74,10 @@ func (h *AuthHandler) VerifyOTP(c *gin.Context) {
 		return
 	}
 
-	_ = db.DB.Model(&otp).Update("used", true).Error
+	if err := db.DB.Model(&otp).Where("used = ?", false).Update("used", true).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update otp state"})
+		return
+	}
 
 	var user domain.User
 	err = db.DB.Where("phone = ?", body.Phone).First(&user).Error
@@ -134,11 +137,8 @@ func (h *AuthHandler) Register(c *gin.Context) {
 			return
 		}
 	} else {
-		user.Name = body.Name
-		if err := db.DB.Save(&user).Error; err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update user"})
-			return
-		}
+		c.JSON(http.StatusConflict, gin.H{"error": "phone already registered"})
+		return
 	}
 
 	c.JSON(http.StatusOK, user)
