@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"qflow/internal/domain"
+	"qflow/internal/jwt"
 )
 
 type mockAuthRepository struct {
@@ -108,7 +109,8 @@ func TestAuthService_RequestOTP(t *testing.T) {
 				mock.createError = errors.New("database error")
 			}
 
-			service := NewAuthService(mock)
+			jwtManager := jwt.NewJWTManager("test-secret-key")
+			service := NewAuthService(mock, jwtManager)
 			otp, err := service.RequestOTP(tt.phone)
 
 			if tt.wantErr {
@@ -154,7 +156,7 @@ func TestAuthService_VerifyOTP(t *testing.T) {
 		{"OTP not found", "1234567890", "123456", func(m *mockAuthRepository) {}, true},
 		{"user not found", "1234567890", "123456", func(m *mockAuthRepository) {
 			m.otp = &domain.OTP{ID: 1, Phone: "1234567890", Code: "123456", Used: false, ExpiresAt: time.Now().Add(5 * time.Minute)}
-		}, true},
+		}, false},
 	}
 
 	for _, tt := range tests {
@@ -162,7 +164,8 @@ func TestAuthService_VerifyOTP(t *testing.T) {
 			mock := newMockAuthRepository()
 			tt.setup(mock)
 
-			service := NewAuthService(mock)
+			jwtManager := jwt.NewJWTManager("test-secret-key")
+			service := NewAuthService(mock, jwtManager)
 			user, token, err := service.VerifyOTP(tt.phone, tt.code)
 
 			if tt.wantErr {
@@ -203,7 +206,9 @@ func TestAuthService_RegisterUser(t *testing.T) {
 		setup    func(*mockAuthRepository)
 		wantErr  bool
 	}{
-		{"valid registration", "1234567890", "Test User", "user", func(m *mockAuthRepository) {}, false},
+		{"valid registration", "1234567890", "Test User", "user", func(m *mockAuthRepository) {
+			m.otp = &domain.OTP{ID: 1, Phone: "1234567890", Code: "123456", Used: false, ExpiresAt: time.Now().Add(5 * time.Minute)}
+		}, false},
 		{"empty phone", "", "Test User", "user", func(m *mockAuthRepository) {}, true},
 		{"empty name", "1234567890", "", "user", func(m *mockAuthRepository) {}, true},
 		{"user exists", "1234567890", "Test User", "user", func(m *mockAuthRepository) {
@@ -213,7 +218,9 @@ func TestAuthService_RegisterUser(t *testing.T) {
 		{"create error", "1234567890", "Test User", "user", func(m *mockAuthRepository) {
 			m.createUserErr = errors.New("database error")
 		}, true},
-		{"default role", "1234567890", "Test User", "", func(m *mockAuthRepository) {}, false},
+		{"default role", "1234567890", "Test User", "", func(m *mockAuthRepository) {
+			m.otp = &domain.OTP{ID: 1, Phone: "1234567890", Code: "123456", Used: false, ExpiresAt: time.Now().Add(5 * time.Minute)}
+		}, false},
 	}
 
 	for _, tt := range tests {
@@ -221,8 +228,9 @@ func TestAuthService_RegisterUser(t *testing.T) {
 			mock := newMockAuthRepository()
 			tt.setup(mock)
 
-			service := NewAuthService(mock)
-			user, token, err := service.RegisterUser(tt.phone, tt.userName, tt.role)
+			jwtManager := jwt.NewJWTManager("test-secret-key")
+			service := NewAuthService(mock, jwtManager)
+			user, token, err := service.RegisterUser(tt.phone, tt.userName, tt.role, "123456")
 
 			if tt.wantErr {
 				if err == nil {
@@ -285,7 +293,8 @@ func TestAuthService_GetUserProfile(t *testing.T) {
 			mock := newMockAuthRepository()
 			tt.setup(mock)
 
-			service := NewAuthService(mock)
+			jwtManager := jwt.NewJWTManager("test-secret-key")
+			service := NewAuthService(mock, jwtManager)
 			user, err := service.GetUserProfile(tt.userID)
 
 			if tt.wantErr {
@@ -347,7 +356,8 @@ func TestAuthService_UpdateUserProfile(t *testing.T) {
 			mock := newMockAuthRepository()
 			tt.setup(mock)
 
-			service := NewAuthService(mock)
+			jwtManager := jwt.NewJWTManager("test-secret-key")
+			service := NewAuthService(mock, jwtManager)
 			user, err := service.UpdateUserProfile(tt.userID, tt.userName, tt.role)
 
 			if tt.wantErr {

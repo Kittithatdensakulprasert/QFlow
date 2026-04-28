@@ -35,7 +35,7 @@ type AuthRepository interface {
 type AuthService interface {
 	RequestOTP(phone string) (*OTP, error)
 	VerifyOTP(phone, code string) (*User, string, error)
-	RegisterUser(phone, name, role string) (*User, string, error)
+	RegisterUser(phone, name, role, otpCode string) (*User, string, error)
 	GetUserProfile(userID uint) (*User, error)
 	UpdateUserProfile(userID uint, name, role string) (*User, error)
 }

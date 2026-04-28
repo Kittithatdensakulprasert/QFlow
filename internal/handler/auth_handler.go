@@ -65,9 +65,10 @@ func (h *AuthHandler) VerifyOTP(c *gin.Context) {
 
 func (h *AuthHandler) Register(c *gin.Context) {
 	var req struct {
-		Phone string `json:"phone" binding:"required"`
-		Name  string `json:"name" binding:"required"`
-		Role  string `json:"role"`
+		Phone   string `json:"phone" binding:"required"`
+		Name    string `json:"name" binding:"required"`
+		Role    string `json:"role"`
+		OTPCode string `json:"otp_code" binding:"required"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -75,7 +76,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		return
 	}
 
-	user, token, err := h.authService.RegisterUser(req.Phone, req.Name, req.Role)
+	user, token, err := h.authService.RegisterUser(req.Phone, req.Name, req.Role, req.OTPCode)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return

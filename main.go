@@ -3,6 +3,7 @@ package main
 import (
 	"qflow/config"
 	"qflow/db"
+	"qflow/internal/jwt"
 	"qflow/internal/repository"
 	"qflow/internal/router"
 	"qflow/internal/service"
@@ -24,10 +25,11 @@ func main() {
 	notificationSvc := service.NewNotificationService(notificationRepo)
 
 	authRepo := repository.NewAuthRepository(database)
-	authSvc := service.NewAuthService(authRepo)
+	jwtManager := jwt.NewJWTManager("your-secret-key-here") // Use environment variable in production
+	authSvc := service.NewAuthService(authRepo, jwtManager)
 
 	r := gin.Default()
-	router.Setup(r, providerSvc, queueSvc, notificationSvc, authSvc)
+	router.Setup(r, providerSvc, queueSvc, notificationSvc, authSvc, jwtManager)
 
 	r.Run(":" + cfg.Port)
 }

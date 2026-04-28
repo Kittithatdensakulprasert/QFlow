@@ -3,17 +3,21 @@ package service
 import (
 	"errors"
 	"fmt"
-	"time"
 
 	"qflow/internal/domain"
+	"qflow/internal/jwt"
 )
 
 type authService struct {
-	authRepo domain.AuthRepository
+	authRepo   domain.AuthRepository
+	jwtManager *jwt.JWTManager
 }
 
-func NewAuthService(authRepo domain.AuthRepository) domain.AuthService {
-	return &authService{authRepo: authRepo}
+func NewAuthService(authRepo domain.AuthRepository, jwtManager *jwt.JWTManager) domain.AuthService {
+	return &authService{
+		authRepo:   authRepo,
+		jwtManager: jwtManager,
+	}
 }
 
 func (s *authService) RequestOTP(phone string) (*domain.OTP, error) {
@@ -63,12 +67,16 @@ func (s *authService) VerifyOTP(phone, code string) (*domain.User, string, error
 		}
 	}
 
-	token := fmt.Sprintf("token_%d_%d", user.ID, time.Now().Unix())
+	// Generate JWT token
+	token, err := s.jwtManager.GenerateToken(user.ID, user.Phone, user.Role)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to generate token: %w", err)
+	}
 
 	return user, token, nil
 }
 
-func (s *authService) RegisterUser(phone, name, role string) (*domain.User, string, error) {
+func (s *authService) RegisterUser(phone, name, role, otpCode string) (*domain.User, string, error) {
 	if phone == "" {
 		return nil, "", errors.New("phone number is required")
 	}
@@ -87,8 +95,12 @@ func (s *authService) RegisterUser(phone, name, role string) (*domain.User, stri
 		return nil, "", errors.New("user with this phone number already exists")
 	}
 
+	if otpCode == "" {
+		return nil, "", errors.New("OTP code is required")
+	}
+
 	// SECURITY: Check if there's a valid OTP for this phone
-	otp, err := s.authRepo.FindValidOTP(phone, "123456") // In production, this should be the actual OTP code
+	otp, err := s.authRepo.FindValidOTP(phone, otpCode)
 	if err != nil || otp == nil {
 		return nil, "", errors.New("phone number not verified. Please request OTP first")
 	}
@@ -109,8 +121,11 @@ func (s *authService) RegisterUser(phone, name, role string) (*domain.User, stri
 		return nil, "", err
 	}
 
-	// Generate token
-	token := fmt.Sprintf("token_%d_%d", user.ID, time.Now().Unix())
+	// Generate JWT token
+	token, err := s.jwtManager.GenerateToken(user.ID, user.Phone, user.Role)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to generate token: %w", err)
+	}
 
 	return user, token, nil
 }
