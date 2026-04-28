@@ -1,8 +1,9 @@
 package repository
 
 import (
+	"crypto/rand"
 	"fmt"
-	"math/rand"
+	"math/big"
 	"time"
 
 	"qflow/internal/domain"
@@ -19,7 +20,13 @@ func NewAuthRepository(db *gorm.DB) domain.AuthRepository {
 }
 
 func (r *authRepository) CreateOTP(phone string) (*domain.OTP, error) {
-	code := fmt.Sprintf("%06d", rand.Intn(1000000))
+	// Generate cryptographically secure 6-digit OTP
+	n, err := rand.Int(rand.Reader, big.NewInt(1000000))
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate secure OTP: %w", err)
+	}
+	code := fmt.Sprintf("%06d", n.Int64())
+
 	otp := &domain.OTP{
 		Phone:     phone,
 		Code:      code,
@@ -36,7 +43,7 @@ func (r *authRepository) CreateOTP(phone string) (*domain.OTP, error) {
 
 func (r *authRepository) FindValidOTP(phone, code string) (*domain.OTP, error) {
 	var otp domain.OTP
-	err := r.db.Where("phone = ? AND code = ? AND used = ? AND expires_at > ?", 
+	err := r.db.Where("phone = ? AND code = ? AND used = ? AND expires_at > ?",
 		phone, code, false, time.Now()).First(&otp).Error
 	if err != nil {
 		return nil, err
