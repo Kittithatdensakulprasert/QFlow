@@ -4,6 +4,7 @@ import (
 	"log"
 	"qflow/config"
 	"qflow/db"
+	"qflow/internal/domain"
 	"qflow/internal/jwt"
 	"qflow/internal/repository"
 	"qflow/internal/router"
@@ -28,6 +29,8 @@ func main() {
 	notificationRepo := repository.NewNotificationRepository(database)
 	notificationSvc := service.NewNotificationService(notificationRepo)
 	authRepo := repository.NewAuthRepository(database)
+	seedBootstrapUser(authRepo, cfg.BootstrapAdminPhone, cfg.BootstrapAdminName, "admin")
+	seedBootstrapUser(authRepo, cfg.BootstrapProviderPhone, cfg.BootstrapProviderName, "provider")
 
 	jwtManager := jwt.NewJWTManager(cfg.JWTSecret)
 	authSvc := service.NewAuthService(authRepo, jwtManager)
@@ -36,4 +39,29 @@ func main() {
 	router.Setup(r, providerSvc, queueSvc, notificationSvc, authSvc, jwtManager, cfg.ExposeOTPInResponse())
 
 	r.Run(":" + cfg.Port)
+}
+
+func seedBootstrapUser(authRepo domain.AuthRepository, phone, name, role string) {
+	if phone == "" {
+		return
+	}
+
+	user, err := authRepo.FindUserByPhone(phone)
+	if err != nil {
+		user = &domain.User{
+			Phone: phone,
+			Name:  name,
+			Role:  role,
+		}
+		if err := authRepo.CreateUser(user); err != nil {
+			log.Fatalf("failed to create bootstrap %s user: %v", role, err)
+		}
+		return
+	}
+
+	user.Name = name
+	user.Role = role
+	if err := authRepo.UpdateUser(user); err != nil {
+		log.Fatalf("failed to update bootstrap %s user: %v", role, err)
+	}
 }
