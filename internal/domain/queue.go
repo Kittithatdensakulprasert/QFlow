@@ -1,17 +1,32 @@
 package domain
 
+import "time"
+
 type Queue struct {
-	ID          uint   `json:"id"`
-	QueueNumber int    `json:"queue_number"`
-	ZoneID      uint   `json:"zone_id"`
-	UserID      uint   `json:"user_id"`
-	Status      string `json:"status"` // waiting, called, completed, skipped, cancelled
+	ID          uint      `gorm:"primaryKey" json:"id"`
+	QueueNumber int       `gorm:"not null" json:"queue_number"`
+	ZoneID      uint      `gorm:"not null" json:"zone_id"`
+	Zone        Zone      `gorm:"foreignKey:ZoneID" json:"zone,omitempty"`
+	UserID      uint      `gorm:"not null" json:"user_id"`
+	User        User      `gorm:"foreignKey:UserID" json:"user,omitempty"`
+	Status      string    `gorm:"default:waiting" json:"status"` // waiting, called, completed, skipped, cancelled
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
 }
 
 type QueueRepository interface {
-	// TODO: define methods
+	FindZoneByID(id uint) (*Zone, error)
+	GetNextQueueNumber(zoneID uint) (int, error)
+	Create(queue *Queue) error
+	FindByQueueNumber(queueNumber int) (*Queue, error)
+	FindByID(id uint) (*Queue, error)
+	FindByUserID(userID uint) ([]Queue, error)
+	UpdateStatus(id uint, status string) error
 }
 
 type QueueService interface {
-	// TODO: define methods
+	BookQueue(userID, zoneID uint) (*Queue, error)
+	GetQueueByNumber(queueNumber int) (*Queue, error)
+	GetQueueHistory(userID uint) ([]Queue, error)
+	CancelQueue(id, userID uint) error
 }

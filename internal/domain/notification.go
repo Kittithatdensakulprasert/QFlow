@@ -1,16 +1,28 @@
 package domain
 
+import "time"
+
 type Notification struct {
-	ID      uint   `json:"id"`
-	UserID  uint   `json:"user_id"`
-	Message string `json:"message"`
-	IsRead  bool   `json:"is_read"`
+	ID        uint      `gorm:"primaryKey" json:"id"`
+	UserID    uint      `gorm:"not null" json:"user_id"`
+	User      User      `gorm:"foreignKey:UserID" json:"user,omitempty"`
+	Message   string    `gorm:"not null" json:"message"`
+	IsRead    bool      `gorm:"default:false" json:"is_read"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 type NotificationRepository interface {
-	// TODO: define methods
+	FindByUserID(userID uint) ([]Notification, error)
+	FindByID(id uint) (*Notification, error)
+	Create(n *Notification) error
+	MarkRead(id uint) error
+	Delete(id uint) error
 }
 
 type NotificationService interface {
-	// TODO: define methods
+	GetNotifications(userID uint) ([]Notification, error)
+	SendNotification(userID uint, message string) (*Notification, error)
+	MarkNotificationRead(id uint) error
+	DeleteNotification(id uint) error
 }
