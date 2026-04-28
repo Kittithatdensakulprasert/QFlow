@@ -1,2 +1,16 @@
 node_modules/
 .env
+
+# Binary files
+qflow
+*.exe
+
+# Build artifacts
+*.bin
+/dist/
+/build/
+
+# Go specific
+*.test
+*.prof
+vendor/

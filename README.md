@@ -126,12 +126,7 @@ QFlow/
 | `PATCH` | `/api/queues/:id/cancel` | ยกเลิกคิว | User |
 
 ### Queue Management Module (4 endpoints)
-| Method | Endpoint | คำอธิบาย | Role |
-|--------|----------|----------|------|
-| `GET` | `/api/manage/queues/:zoneId` | ดูรายการคิวทั้งหมดในโซน | Provider |
-| `PATCH` | `/api/manage/queues/:id/call` | เรียกคิว + แจ้งเตือน | Provider |
-| `PATCH` | `/api/manage/queues/:id/complete` | ปิดคิว (เสร็จสิ้น) | Provider |
-| `PATCH` | `/api/manage/queues/:id/skip` | ข้ามคิว | Provider |
+> หมายเหตุ: endpoint ชุดนี้อยู่ในงานของ `feature/queue-management` และยังไม่ถูกรวมใน branch `feature/queue-booking`
 
 ### Notification Module (4 endpoints)
 | Method | Endpoint | คำอธิบาย | Role |
@@ -139,7 +134,7 @@ QFlow/
 | `GET` | `/api/notifications` | ดูแจ้งเตือนทั้งหมด | User |
 | `PATCH` | `/api/notifications/:id/read` | ทำเครื่องหมายว่าอ่านแล้ว | User |
 | `DELETE` | `/api/notifications/:id` | ลบแจ้งเตือน | User |
-| `POST` | `/api/notifications/send` | ส่งการแจ้งเตือน (ระบบ) | System |
+| `POST` | `/api/notifications/send` | สร้างการแจ้งเตือนให้ผู้ใช้ที่ล็อกอินอยู่ | User |
 
 ---
 
@@ -152,8 +147,16 @@ QFlow/
 ```env
 PORT=3000
 DATABASE_URL=postgres://user:password@localhost:5432/qflow
-JWT_SECRET=your-secret-key
+JWT_SECRET=
+BOOTSTRAP_ADMIN_PHONE=
+BOOTSTRAP_ADMIN_NAME=Bootstrap Admin
+BOOTSTRAP_PROVIDER_PHONE=
+BOOTSTRAP_PROVIDER_NAME=Bootstrap Provider
 ```
+
+`JWT_SECRET` ต้องตั้งเป็นค่าสุ่มจริงที่ยาวพอ และต้องไม่เป็นค่า default เช่น `secret` หรือ `your-secret-key-here` เพราะระบบจะไม่ start ถ้าใช้ค่าที่ไม่ปลอดภัย
+
+ถ้าต้องทดสอบ endpoint ที่ต้องใช้ role `admin` หรือ `provider` ให้กำหนด `BOOTSTRAP_ADMIN_PHONE` หรือ `BOOTSTRAP_PROVIDER_PHONE` ก่อน start app จากนั้นเรียก `/api/auth/request-otp` และ `/api/auth/verify-otp` ด้วยเบอร์นั้นเพื่อรับ JWT ที่มี role ตามที่ bootstrap ไว้
 
 ### รันด้วย Go
 
@@ -164,6 +167,12 @@ go run main.go
 Server จะรันที่ `http://localhost:3000`
 
 ### รันด้วย Docker
+
+```bash
+JWT_SECRET=replace-with-a-real-random-secret docker-compose up --build
+```
+
+หรือกำหนด `JWT_SECRET` ในไฟล์ `.env` ก่อน แล้วรัน:
 
 ```bash
 docker-compose up --build

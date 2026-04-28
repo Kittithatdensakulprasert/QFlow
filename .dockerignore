@@ -1,0 +1,7 @@
+.git
+.gitignore
+README.md
+ISSUES.md
+*.md
+tmp
+coverage.out
