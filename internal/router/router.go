@@ -56,6 +56,10 @@ func Setup(
 	providerRoutes.Use(middleware.RequireRole("provider"))
 	providerRoutes.POST("/providers/:id/zones", provider.CreateZone)
 	providerRoutes.PATCH("/zones/:id/toggle", provider.ToggleZone)
+	providerRoutes.GET("/manage/queues/:zoneId", queue.GetQueuesByZone)
+	providerRoutes.PATCH("/manage/queues/:id/call", queue.CallQueue)
+	providerRoutes.PATCH("/manage/queues/:id/complete", queue.CompleteQueue)
+	providerRoutes.PATCH("/manage/queues/:id/skip", queue.SkipQueue)
 
 	// Category
 	api.GET("/categories", category.GetCategories)

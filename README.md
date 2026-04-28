@@ -169,6 +169,12 @@ Server จะรันที่ `http://localhost:3000`
 ### รันด้วย Docker
 
 ```bash
+JWT_SECRET=replace-with-a-real-random-secret docker-compose up --build
+```
+
+หรือกำหนด `JWT_SECRET` ในไฟล์ `.env` ก่อน แล้วรัน:
+
+```bash
 docker-compose up --build
 ```
 
