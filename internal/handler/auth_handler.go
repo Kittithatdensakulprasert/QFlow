@@ -74,8 +74,13 @@ func (h *AuthHandler) VerifyOTP(c *gin.Context) {
 		return
 	}
 
-	if err := db.DB.Model(&otp).Where("used = ?", false).Update("used", true).Error; err != nil {
+	updateResult := db.DB.Model(&otp).Where("used = ?", false).Update("used", true)
+	if updateResult.Error != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update otp state"})
+		return
+	}
+	if updateResult.RowsAffected != 1 {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "otp already used or expired"})
 		return
 	}
 
