@@ -1,6 +1,16 @@
 package domain
 
-import "time"
+import (
+	"errors"
+	"time"
+)
+
+// Sentinel errors for queue management
+var (
+	ErrQueueCannotBeCalled    = errors.New("queue cannot be called")
+	ErrQueueCannotBeCompleted = errors.New("only called queue can be completed")
+	ErrQueueCannotBeSkipped   = errors.New("cannot skip this queue")
+)
 
 type Queue struct {
 	ID          uint      `gorm:"primaryKey" json:"id"`
@@ -21,6 +31,7 @@ type QueueRepository interface {
 	FindByID(id uint) (*Queue, error)
 	FindByUserID(userID uint) ([]Queue, error)
 	UpdateStatus(id uint, status string) error
+	GetByZoneID(zoneID uint) ([]Queue, error)
 }
 
 type QueueService interface {
@@ -28,4 +39,8 @@ type QueueService interface {
 	GetQueueByNumber(queueNumber int, userID uint) (*Queue, error)
 	GetQueueHistory(userID uint) ([]Queue, error)
 	CancelQueue(id, userID uint) error
+	GetQueuesByZone(zoneID uint) ([]Queue, error)
+	CallQueue(id uint) (*Queue, error)
+	CompleteQueue(id uint) (*Queue, error)
+	SkipQueue(id uint) (*Queue, error)
 }

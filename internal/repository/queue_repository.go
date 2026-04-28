@@ -78,3 +78,13 @@ func (r *queueRepository) FindByUserID(userID uint) ([]domain.Queue, error) {
 func (r *queueRepository) UpdateStatus(id uint, status string) error {
 	return r.db.Model(&domain.Queue{}).Where("id = ?", id).Update("status", status).Error
 }
+
+func (r *queueRepository) GetByZoneID(zoneID uint) ([]domain.Queue, error) {
+	var queues []domain.Queue
+	err := r.db.
+		Preload("User").
+		Where("zone_id = ?", zoneID).
+		Order("queue_number asc").
+		Find(&queues).Error
+	return queues, err
+}

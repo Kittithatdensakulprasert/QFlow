@@ -45,6 +45,7 @@ func Setup(
 	protected.GET("/queues/:queueNumber", queue.GetQueue)
 	protected.PATCH("/queues/:id/cancel", queue.CancelQueue)
 
+	// Admin routes
 	admin := protected.Group("/")
 	admin.Use(middleware.RequireRole("admin"))
 	admin.POST("/categories", category.CreateCategory)
@@ -52,6 +53,7 @@ func Setup(
 	admin.DELETE("/categories/:id", category.DeleteCategory)
 	admin.POST("/providers", provider.CreateProvider)
 
+	// Provider routes
 	providerRoutes := protected.Group("/")
 	providerRoutes.Use(middleware.RequireRole("provider"))
 	providerRoutes.POST("/providers/:id/zones", provider.CreateZone)
@@ -61,11 +63,9 @@ func Setup(
 	providerRoutes.PATCH("/manage/queues/:id/complete", queue.CompleteQueue)
 	providerRoutes.PATCH("/manage/queues/:id/skip", queue.SkipQueue)
 
-	// Category
+	// Public Category & Provider
 	api.GET("/categories", category.GetCategories)
 	api.GET("/categories/:id", category.GetCategory)
-
-	// Provider & Zone
 	api.GET("/providers", provider.GetProviders)
 	api.GET("/providers/:id/zones", provider.GetZones)
 }

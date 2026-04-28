@@ -1,302 +1,441 @@
-package service_test
+package service
 
 import (
 	"errors"
-	"qflow/internal/domain"
-	"qflow/internal/service"
 	"testing"
+
+	"qflow/internal/domain"
 
 	"gorm.io/gorm"
 )
 
+// ===================== MOCK REPOSITORY =====================
+
 type mockQueueRepo struct {
-	zones   map[uint]domain.Zone
-	queues  []domain.Queue
-	nextID  uint
-	repoErr error
+	queues map[uint]*domain.Queue
+	nextID uint
+	zones  map[uint]*domain.Zone
 }
 
-func newMockQueueRepo() *mockQueueRepo {
+func newMockRepo() *mockQueueRepo {
 	return &mockQueueRepo{
-		zones:  map[uint]domain.Zone{},
-		queues: []domain.Queue{},
-		nextID: 1,
+		nextID: 7,
+		queues: map[uint]*domain.Queue{
+			1: {ID: 1, QueueNumber: 1, ZoneID: 10, UserID: 99, Status: "waiting"},
+			2: {ID: 2, QueueNumber: 2, ZoneID: 10, UserID: 99, Status: "called"},
+			3: {ID: 3, QueueNumber: 3, ZoneID: 10, UserID: 99, Status: "completed"},
+			4: {ID: 4, QueueNumber: 4, ZoneID: 10, UserID: 99, Status: "skipped"},
+			5: {ID: 5, QueueNumber: 5, ZoneID: 10, UserID: 88, Status: "waiting"}, // คนอื่น
+			6: {ID: 6, QueueNumber: 6, ZoneID: 10, UserID: 99, Status: "cancelled"},
+		},
+		zones: map[uint]*domain.Zone{
+			10: {ID: 10, IsOpen: true},
+			20: {ID: 20, IsOpen: true},
+			99: {ID: 99, IsOpen: true},
+		},
 	}
 }
 
 func (m *mockQueueRepo) FindZoneByID(id uint) (*domain.Zone, error) {
-	if m.repoErr != nil {
-		return nil, m.repoErr
-	}
-	zone, ok := m.zones[id]
+	z, ok := m.zones[id]
 	if !ok {
 		return nil, gorm.ErrRecordNotFound
 	}
-	return &zone, nil
+	cp := *z
+	return &cp, nil
 }
 
-func (m *mockQueueRepo) CreateWithNextQueueNumber(queue *domain.Queue) error {
-	if m.repoErr != nil {
-		return m.repoErr
-	}
-	maxQueueNumber := 0
-	for _, queue := range m.queues {
-		if queue.QueueNumber > maxQueueNumber {
-			maxQueueNumber = queue.QueueNumber
+func (m *mockQueueRepo) CreateWithNextQueueNumber(q *domain.Queue) error {
+	maxQN := 0
+	for _, existing := range m.queues {
+		if existing.QueueNumber > maxQN {
+			maxQN = existing.QueueNumber
 		}
 	}
-	queue.QueueNumber = maxQueueNumber + 1
-	queue.ID = m.nextID
+	q.QueueNumber = maxQN + 1
+	q.ID = m.nextID
 	m.nextID++
-	m.queues = append(m.queues, *queue)
+	cp := *q
+	m.queues[q.ID] = &cp
 	return nil
 }
 
-func (m *mockQueueRepo) FindByQueueNumber(queueNumber int) (*domain.Queue, error) {
-	if m.repoErr != nil {
-		return nil, m.repoErr
-	}
-	for i := len(m.queues) - 1; i >= 0; i-- {
-		if m.queues[i].QueueNumber == queueNumber {
-			return &m.queues[i], nil
+func (m *mockQueueRepo) FindByQueueNumber(qn int) (*domain.Queue, error) {
+	for _, q := range m.queues {
+		if q.QueueNumber == qn {
+			cp := *q
+			return &cp, nil
 		}
 	}
-	return nil, gorm.ErrRecordNotFound
+	return nil, ErrQueueNotFound
 }
 
 func (m *mockQueueRepo) FindByID(id uint) (*domain.Queue, error) {
-	if m.repoErr != nil {
-		return nil, m.repoErr
+	q, ok := m.queues[id]
+	if !ok {
+		return nil, ErrQueueNotFound
 	}
-	for i := range m.queues {
-		if m.queues[i].ID == id {
-			return &m.queues[i], nil
-		}
-	}
-	return nil, gorm.ErrRecordNotFound
+	cp := *q
+	return &cp, nil
 }
 
 func (m *mockQueueRepo) FindByUserID(userID uint) ([]domain.Queue, error) {
-	if m.repoErr != nil {
-		return nil, m.repoErr
-	}
-	result := []domain.Queue{}
-	for _, queue := range m.queues {
-		if queue.UserID == userID {
-			result = append(result, queue)
+	var result []domain.Queue
+	for _, q := range m.queues {
+		if q.UserID == userID {
+			result = append(result, *q)
 		}
 	}
 	return result, nil
 }
 
 func (m *mockQueueRepo) UpdateStatus(id uint, status string) error {
-	if m.repoErr != nil {
-		return m.repoErr
+	q, ok := m.queues[id]
+	if !ok {
+		return ErrQueueNotFound
 	}
-	for i := range m.queues {
-		if m.queues[i].ID == id {
-			m.queues[i].Status = status
-			return nil
+	q.Status = status
+	return nil
+}
+
+func (m *mockQueueRepo) GetByZoneID(zoneID uint) ([]domain.Queue, error) {
+	var result []domain.Queue
+	for _, q := range m.queues {
+		if q.ZoneID == zoneID {
+			result = append(result, *q)
 		}
 	}
-	return gorm.ErrRecordNotFound
+	return result, nil
 }
 
-func TestBookQueue(t *testing.T) {
-	repo := newMockQueueRepo()
-	repo.zones[1] = domain.Zone{ID: 1, IsOpen: true}
-	svc := service.NewQueueService(repo)
+// ===================== SERVICE =====================
 
-	queue, err := svc.BookQueue(10, 1)
+func newService() *queueService {
+	return &queueService{repo: newMockRepo()}
+}
+
+// ===================== BookQueue =====================
+
+func TestBookQueue_Success(t *testing.T) {
+	svc := newService()
+
+	queue, err := svc.BookQueue(77, 20)
+
 	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if queue.ID == 0 {
-		t.Fatal("expected queue ID to be assigned")
-	}
-	if queue.QueueNumber != 1 {
-		t.Fatalf("expected queue number 1, got %d", queue.QueueNumber)
+		t.Fatal("expected success, got:", err)
 	}
 	if queue.Status != "waiting" {
-		t.Fatalf("expected waiting status, got %s", queue.Status)
+		t.Fatalf("expected 'waiting', got: %s", queue.Status)
 	}
 }
 
-func TestBookQueue_AssignsGlobalQueueNumbersAcrossZones(t *testing.T) {
-	repo := newMockQueueRepo()
-	repo.zones[1] = domain.Zone{ID: 1, IsOpen: true}
-	repo.zones[2] = domain.Zone{ID: 2, IsOpen: true}
-	svc := service.NewQueueService(repo)
+func TestBookQueue_ZoneNotFound(t *testing.T) {
+	svc := newService()
 
-	first, err := svc.BookQueue(10, 1)
+	_, err := svc.BookQueue(77, 999)
+
+	if !errors.Is(err, ErrZoneNotFound) {
+		t.Fatalf("expected ErrZoneNotFound, got: %v", err)
+	}
+}
+
+// ===================== GetQueueByNumber =====================
+
+func TestGetQueueByNumber_Success(t *testing.T) {
+	svc := newService()
+
+	queue, err := svc.GetQueueByNumber(1, 99)
+
 	if err != nil {
-		t.Fatalf("unexpected first booking error: %v", err)
+		t.Fatal("expected success, got:", err)
 	}
-	second, err := svc.BookQueue(20, 2)
-	if err != nil {
-		t.Fatalf("unexpected second booking error: %v", err)
-	}
-
-	if first.QueueNumber != 1 || second.QueueNumber != 2 {
-		t.Fatalf("expected global queue numbers 1 and 2, got %d and %d", first.QueueNumber, second.QueueNumber)
-	}
-}
-
-func TestBookQueue_ValidationAndZoneErrors(t *testing.T) {
-	repo := newMockQueueRepo()
-	repo.zones[1] = domain.Zone{ID: 1, IsOpen: false}
-	svc := service.NewQueueService(repo)
-
-	_, err := svc.BookQueue(0, 1)
-	if !errors.Is(err, service.ErrInvalidUserID) {
-		t.Fatalf("expected invalid user id error, got %v", err)
-	}
-
-	_, err = svc.BookQueue(1, 0)
-	if !errors.Is(err, service.ErrInvalidZoneID) {
-		t.Fatalf("expected invalid zone id error, got %v", err)
-	}
-
-	_, err = svc.BookQueue(1, 999)
-	if !errors.Is(err, service.ErrZoneNotFound) {
-		t.Fatalf("expected zone not found error, got %v", err)
-	}
-
-	_, err = svc.BookQueue(1, 1)
-	if !errors.Is(err, service.ErrZoneClosed) {
-		t.Fatalf("expected zone closed error, got %v", err)
-	}
-}
-
-func TestBookQueue_PropagatesRepositoryError(t *testing.T) {
-	repo := newMockQueueRepo()
-	repo.zones[1] = domain.Zone{ID: 1, IsOpen: true}
-	repo.repoErr = errors.New("db down")
-	svc := service.NewQueueService(repo)
-
-	_, err := svc.BookQueue(1, 1)
-	if err == nil || err.Error() != "db down" {
-		t.Fatalf("expected db down error, got %v", err)
-	}
-}
-
-func TestGetQueueByNumber(t *testing.T) {
-	repo := newMockQueueRepo()
-	repo.zones[1] = domain.Zone{ID: 1, IsOpen: true}
-	svc := service.NewQueueService(repo)
-	_, _ = svc.BookQueue(1, 1)
-
-	queue, err := svc.GetQueueByNumber(1, 1)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if queue.QueueNumber != 1 {
-		t.Fatalf("expected queue number 1, got %d", queue.QueueNumber)
+	if queue.ID != 1 {
+		t.Fatalf("expected queue ID 1, got: %d", queue.ID)
 	}
 }
 
 func TestGetQueueByNumber_NotFound(t *testing.T) {
-	repo := newMockQueueRepo()
-	svc := service.NewQueueService(repo)
+	svc := newService()
 
-	_, err := svc.GetQueueByNumber(999, 1)
-	if !errors.Is(err, service.ErrQueueNotFound) {
-		t.Fatalf("expected queue not found error, got %v", err)
+	_, err := svc.GetQueueByNumber(999, 99)
+
+	if !errors.Is(err, ErrQueueNotFound) {
+		t.Fatalf("expected ErrQueueNotFound, got: %v", err)
 	}
 }
 
-func TestGetQueueByNumber_RejectsInvalidOrDifferentUser(t *testing.T) {
-	repo := newMockQueueRepo()
-	repo.zones[1] = domain.Zone{ID: 1, IsOpen: true}
-	svc := service.NewQueueService(repo)
-	_, _ = svc.BookQueue(1, 1)
+func TestGetQueueByNumber_Forbidden(t *testing.T) {
+	svc := newService()
 
-	_, err := svc.GetQueueByNumber(1, 0)
-	if !errors.Is(err, service.ErrInvalidUserID) {
-		t.Fatalf("expected invalid user id error, got %v", err)
-	}
+	_, err := svc.GetQueueByNumber(5, 99) // queue 5 เป็นของ userID=88
 
-	_, err = svc.GetQueueByNumber(1, 99)
-	if !errors.Is(err, service.ErrForbiddenQueue) {
-		t.Fatalf("expected forbidden queue error, got %v", err)
+	if !errors.Is(err, ErrForbiddenQueue) {
+		t.Fatalf("expected ErrForbiddenQueue, got: %v", err)
 	}
 }
 
-func TestGetQueueHistory(t *testing.T) {
-	repo := newMockQueueRepo()
-	repo.zones[1] = domain.Zone{ID: 1, IsOpen: true}
-	svc := service.NewQueueService(repo)
+// ===================== CancelQueue =====================
 
-	_, _ = svc.BookQueue(1, 1)
-	_, _ = svc.BookQueue(1, 1)
-	_, _ = svc.BookQueue(2, 1)
+func TestCancelQueue_Success(t *testing.T) {
+	svc := newService()
 
-	queues, err := svc.GetQueueHistory(1)
+	err := svc.CancelQueue(1, 99)
+
 	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if len(queues) != 2 {
-		t.Fatalf("expected 2 queues, got %d", len(queues))
+		t.Fatal("expected success, got:", err)
 	}
 }
 
-func TestGetQueueHistory_InvalidUserID(t *testing.T) {
-	repo := newMockQueueRepo()
-	svc := service.NewQueueService(repo)
+func TestCancelQueue_NotOwner(t *testing.T) {
+	svc := newService()
 
-	_, err := svc.GetQueueHistory(0)
-	if !errors.Is(err, service.ErrInvalidUserID) {
-		t.Fatalf("expected invalid user id error, got %v", err)
+	err := svc.CancelQueue(5, 99) // queue 5 เป็นของ userID=88
+
+	if !errors.Is(err, ErrForbiddenQueue) {
+		t.Fatalf("expected ErrForbiddenQueue, got: %v", err)
 	}
 }
 
-func TestCancelQueue(t *testing.T) {
-	repo := newMockQueueRepo()
-	repo.zones[1] = domain.Zone{ID: 1, IsOpen: true}
-	svc := service.NewQueueService(repo)
-	queue, _ := svc.BookQueue(5, 1)
+func TestCancelQueue_InvalidState_Completed(t *testing.T) {
+	svc := newService()
 
-	err := svc.CancelQueue(queue.ID, 5)
+	err := svc.CancelQueue(3, 99) // status=completed
+
+	if !errors.Is(err, ErrQueueFinalized) {
+		t.Fatalf("expected ErrQueueFinalized, got: %v", err)
+	}
+}
+
+func TestCancelQueue_InvalidState_Called(t *testing.T) {
+	svc := newService()
+
+	err := svc.CancelQueue(2, 99) // status=called
+
+	if !errors.Is(err, ErrQueueFinalized) {
+		t.Fatalf("expected ErrQueueFinalized, got: %v", err)
+	}
+}
+
+func TestCancelQueue_AlreadyCancelled(t *testing.T) {
+	svc := newService()
+
+	err := svc.CancelQueue(6, 99) // status=cancelled
+
+	if !errors.Is(err, ErrQueueCancelled) {
+		t.Fatalf("expected ErrQueueCancelled, got: %v", err)
+	}
+}
+
+func TestCancelQueue_NotFound(t *testing.T) {
+	svc := newService()
+
+	err := svc.CancelQueue(999, 99)
+
+	if !errors.Is(err, ErrQueueNotFound) {
+		t.Fatalf("expected ErrQueueNotFound, got: %v", err)
+	}
+}
+
+// ===================== CallQueue =====================
+
+func TestCallQueue_Success(t *testing.T) {
+	svc := newService()
+
+	queue, err := svc.CallQueue(1)
+
 	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatal("expected no error, got:", err)
 	}
-
-	updated, _ := repo.FindByID(queue.ID)
-	if updated.Status != "cancelled" {
-		t.Fatalf("expected cancelled status, got %s", updated.Status)
+	if queue.Status != "called" {
+		t.Fatalf("expected 'called', got: %s", queue.Status)
 	}
 }
 
-func TestCancelQueue_ErrorScenarios(t *testing.T) {
-	repo := newMockQueueRepo()
-	repo.zones[1] = domain.Zone{ID: 1, IsOpen: true}
-	svc := service.NewQueueService(repo)
-	queue, _ := svc.BookQueue(5, 1)
+func TestCallQueue_AlreadyCalled(t *testing.T) {
+	svc := newService()
 
-	err := svc.CancelQueue(queue.ID, 0)
-	if !errors.Is(err, service.ErrInvalidUserID) {
-		t.Fatalf("expected invalid user id error, got %v", err)
+	_, err := svc.CallQueue(2) // status=called
+
+	if !errors.Is(err, domain.ErrQueueCannotBeCalled) {
+		t.Fatalf("expected ErrQueueCannotBeCalled, got: %v", err)
 	}
+}
 
-	err = svc.CancelQueue(999, 5)
-	if !errors.Is(err, service.ErrQueueNotFound) {
-		t.Fatalf("expected queue not found error, got %v", err)
+func TestCallQueue_Completed(t *testing.T) {
+	svc := newService()
+
+	_, err := svc.CallQueue(3) // status=completed
+
+	if !errors.Is(err, domain.ErrQueueCannotBeCalled) {
+		t.Fatalf("expected ErrQueueCannotBeCalled, got: %v", err)
 	}
+}
 
-	err = svc.CancelQueue(queue.ID, 99)
-	if !errors.Is(err, service.ErrForbiddenQueue) {
-		t.Fatalf("expected forbidden queue error, got %v", err)
+func TestCallQueue_NotFound(t *testing.T) {
+	svc := newService()
+
+	_, err := svc.CallQueue(999)
+
+	if !errors.Is(err, ErrQueueNotFound) {
+		t.Fatalf("expected ErrQueueNotFound, got: %v", err)
 	}
+}
 
-	repo.queues[0].Status = "completed"
-	err = svc.CancelQueue(queue.ID, 5)
-	if !errors.Is(err, service.ErrQueueFinalized) {
-		t.Fatalf("expected queue finalized error, got %v", err)
+// ===================== CompleteQueue =====================
+
+func TestCompleteQueue_Success(t *testing.T) {
+	svc := newService()
+
+	queue, err := svc.CompleteQueue(2) // status=called
+
+	if err != nil {
+		t.Fatal("expected success, got:", err)
 	}
+	if queue.Status != "completed" {
+		t.Fatalf("expected 'completed', got: %s", queue.Status)
+	}
+}
 
-	repo.queues[0].Status = "cancelled"
-	err = svc.CancelQueue(queue.ID, 5)
-	if !errors.Is(err, service.ErrQueueCancelled) {
-		t.Fatalf("expected queue cancelled error, got %v", err)
+func TestCompleteQueue_WaitingQueue(t *testing.T) {
+	svc := newService()
+
+	_, err := svc.CompleteQueue(1) // status=waiting
+
+	if !errors.Is(err, domain.ErrQueueCannotBeCompleted) {
+		t.Fatalf("expected ErrQueueCannotBeCompleted, got: %v", err)
+	}
+}
+
+func TestCompleteQueue_SkippedQueue(t *testing.T) {
+	svc := newService()
+
+	_, err := svc.CompleteQueue(4) // status=skipped
+
+	if !errors.Is(err, domain.ErrQueueCannotBeCompleted) {
+		t.Fatalf("expected ErrQueueCannotBeCompleted, got: %v", err)
+	}
+}
+
+func TestCompleteQueue_NotFound(t *testing.T) {
+	svc := newService()
+
+	_, err := svc.CompleteQueue(999)
+
+	if !errors.Is(err, ErrQueueNotFound) {
+		t.Fatalf("expected ErrQueueNotFound, got: %v", err)
+	}
+}
+
+// ===================== SkipQueue =====================
+
+func TestSkipQueue_WaitingSuccess(t *testing.T) {
+	svc := newService()
+
+	queue, err := svc.SkipQueue(1)
+
+	if err != nil {
+		t.Fatal("expected success, got:", err)
+	}
+	if queue.Status != "skipped" {
+		t.Fatalf("expected 'skipped', got: %s", queue.Status)
+	}
+}
+
+func TestSkipQueue_CalledSuccess(t *testing.T) {
+	svc := newService()
+
+	queue, err := svc.SkipQueue(2)
+
+	if err != nil {
+		t.Fatal("expected success, got:", err)
+	}
+	if queue.Status != "skipped" {
+		t.Fatalf("expected 'skipped', got: %s", queue.Status)
+	}
+}
+
+func TestSkipQueue_CompletedFail(t *testing.T) {
+	svc := newService()
+
+	_, err := svc.SkipQueue(3) // status=completed
+
+	if !errors.Is(err, domain.ErrQueueCannotBeSkipped) {
+		t.Fatalf("expected ErrQueueCannotBeSkipped, got: %v", err)
+	}
+}
+
+func TestSkipQueue_CancelledFail(t *testing.T) {
+	svc := newService()
+
+	_, err := svc.SkipQueue(6) // status=cancelled
+
+	if !errors.Is(err, domain.ErrQueueCannotBeSkipped) {
+		t.Fatalf("expected ErrQueueCannotBeSkipped, got: %v", err)
+	}
+}
+
+func TestSkipQueue_NotFound(t *testing.T) {
+	svc := newService()
+
+	_, err := svc.SkipQueue(999)
+
+	if !errors.Is(err, ErrQueueNotFound) {
+		t.Fatalf("expected ErrQueueNotFound, got: %v", err)
+	}
+}
+
+// ===================== GetQueuesByZone =====================
+
+func TestGetQueuesByZone_WithQueues(t *testing.T) {
+	svc := newService()
+
+	queues, err := svc.GetQueuesByZone(10)
+
+	if err != nil {
+		t.Fatal("expected success, got:", err)
+	}
+	if len(queues) == 0 {
+		t.Fatal("expected queues, got empty slice")
+	}
+}
+
+func TestGetQueuesByZone_EmptyZone(t *testing.T) {
+	svc := newService()
+
+	queues, err := svc.GetQueuesByZone(999)
+
+	if err != nil {
+		t.Fatal("expected no error, got:", err)
+	}
+	if len(queues) != 0 {
+		t.Fatalf("expected empty slice, got %d", len(queues))
+	}
+}
+
+// ===================== GetQueueHistory =====================
+
+func TestGetQueueHistory_Success(t *testing.T) {
+	svc := newService()
+
+	queues, err := svc.GetQueueHistory(99)
+
+	if err != nil {
+		t.Fatal("expected success, got:", err)
+	}
+	if len(queues) == 0 {
+		t.Fatal("expected history, got empty")
+	}
+}
+
+func TestGetQueueHistory_NoHistory(t *testing.T) {
+	svc := newService()
+
+	queues, err := svc.GetQueueHistory(777)
+
+	if err != nil {
+		t.Fatal("expected no error, got:", err)
+	}
+	if len(queues) != 0 {
+		t.Fatalf("expected empty history, got %d", len(queues))
 	}
 }

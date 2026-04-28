@@ -3,9 +3,10 @@ package handler
 import (
 	"errors"
 	"net/http"
+	"strconv"
+
 	"qflow/internal/domain"
 	"qflow/internal/service"
-	"strconv"
 
 	"github.com/gin-gonic/gin"
 )
@@ -18,6 +19,9 @@ func NewQueueHandler(svc domain.QueueService) *QueueHandler {
 	return &QueueHandler{svc: svc}
 }
 
+// ===================== Queue Booking (User) =====================
+
+// POST /api/queues/book
 func (h *QueueHandler) BookQueue(c *gin.Context) {
 	var body struct {
 		ZoneID uint `json:"zone_id" binding:"required"`
@@ -57,6 +61,7 @@ func (h *QueueHandler) BookQueue(c *gin.Context) {
 	})
 }
 
+// GET /api/queues/history
 func (h *QueueHandler) GetHistory(c *gin.Context) {
 	userID, ok := resolveRequiredUserID(c)
 	if !ok {
@@ -75,6 +80,7 @@ func (h *QueueHandler) GetHistory(c *gin.Context) {
 	c.JSON(http.StatusOK, queues)
 }
 
+// GET /api/queues/:queueNumber
 func (h *QueueHandler) GetQueue(c *gin.Context) {
 	queueNumber, err := strconv.Atoi(c.Param("queueNumber"))
 	if err != nil || queueNumber <= 0 {
@@ -105,6 +111,7 @@ func (h *QueueHandler) GetQueue(c *gin.Context) {
 	c.JSON(http.StatusOK, queue)
 }
 
+// PATCH /api/queues/:id/cancel
 func (h *QueueHandler) CancelQueue(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil || id <= 0 {
@@ -137,20 +144,95 @@ func (h *QueueHandler) CancelQueue(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "queue cancelled"})
 }
 
+// ===================== Queue Management (Provider) =====================
+
+// GET /api/manage/queues/:zoneId
 func (h *QueueHandler) GetQueuesByZone(c *gin.Context) {
-	c.JSON(http.StatusNotImplemented, gin.H{"message": "not implemented"})
+	zoneID, err := strconv.ParseUint(c.Param("zoneId"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid zone id"})
+		return
+	}
+
+	queues, err := h.svc.GetQueuesByZone(uint(zoneID))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, queues)
 }
 
+// PATCH /api/manage/queues/:id/call
 func (h *QueueHandler) CallQueue(c *gin.Context) {
-	c.JSON(http.StatusNotImplemented, gin.H{"message": "not implemented"})
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
+
+	queue, err := h.svc.CallQueue(uint(id))
+	if err != nil {
+		switch {
+		case errors.Is(err, service.ErrQueueNotFound):
+			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		case errors.Is(err, domain.ErrQueueCannotBeCalled):
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		default:
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		}
+		return
+	}
+
+	c.JSON(http.StatusOK, queue)
 }
 
+// PATCH /api/manage/queues/:id/complete
 func (h *QueueHandler) CompleteQueue(c *gin.Context) {
-	c.JSON(http.StatusNotImplemented, gin.H{"message": "not implemented"})
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
+
+	queue, err := h.svc.CompleteQueue(uint(id))
+	if err != nil {
+		switch {
+		case errors.Is(err, service.ErrQueueNotFound):
+			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		case errors.Is(err, domain.ErrQueueCannotBeCompleted):
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		default:
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		}
+		return
+	}
+
+	c.JSON(http.StatusOK, queue)
 }
 
+// PATCH /api/manage/queues/:id/skip
 func (h *QueueHandler) SkipQueue(c *gin.Context) {
-	c.JSON(http.StatusNotImplemented, gin.H{"message": "not implemented"})
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
+
+	queue, err := h.svc.SkipQueue(uint(id))
+	if err != nil {
+		switch {
+		case errors.Is(err, service.ErrQueueNotFound):
+			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		case errors.Is(err, domain.ErrQueueCannotBeSkipped):
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		default:
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		}
+		return
+	}
+
+	c.JSON(http.StatusOK, queue)
 }
 
 func resolveRequiredUserID(c *gin.Context) (uint, bool) {
