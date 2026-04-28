@@ -4,111 +4,70 @@ import (
 	"context"
 	"errors"
 	"qflow/internal/domain"
-	"sort"
 	"strings"
-	"sync"
-	"time"
+
+	"gorm.io/gorm"
 )
 
 var ErrCategoryRecordNotFound = errors.New("category record not found")
 
-type categoryMemoryRepository struct {
-	mu     sync.RWMutex
-	data   map[uint]domain.Category
-	nextID uint
+type categoryGormRepository struct {
+	db *gorm.DB
 }
 
-func NewCategoryMemoryRepository() domain.CategoryRepository {
-	return &categoryMemoryRepository{
-		data:   make(map[uint]domain.Category),
-		nextID: 1,
-	}
+func NewCategoryGormRepository(db *gorm.DB) domain.CategoryRepository {
+	return &categoryGormRepository{db: db}
 }
 
-func (r *categoryMemoryRepository) FindAll(ctx context.Context) ([]domain.Category, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
+func (r *categoryGormRepository) FindAll(ctx context.Context) ([]domain.Category, error) {
+	var categories []domain.Category
 
-	categories := make([]domain.Category, 0, len(r.data))
+	err := r.db.WithContext(ctx).
+		Order("id ASC").
+		Find(&categories).Error
 
-	for _, category := range r.data {
-		categories = append(categories, category)
-	}
-
-	sort.Slice(categories, func(i, j int) bool {
-		return categories[i].ID < categories[j].ID
-	})
-
-	return categories, nil
+	return categories, err
 }
 
-func (r *categoryMemoryRepository) FindByID(ctx context.Context, id uint) (*domain.Category, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
+func (r *categoryGormRepository) FindByID(ctx context.Context, id uint) (*domain.Category, error) {
+	var category domain.Category
 
-	category, ok := r.data[id]
-	if !ok {
+	err := r.db.WithContext(ctx).First(&category, id).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, ErrCategoryRecordNotFound
 	}
 
-	return &category, nil
+	return &category, err
 }
 
-func (r *categoryMemoryRepository) Create(ctx context.Context, category *domain.Category) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	now := time.Now()
-
-	category.ID = r.nextID
-	category.CreatedAt = now
-	category.UpdatedAt = now
-
-	r.data[category.ID] = *category
-	r.nextID++
-
-	return nil
+func (r *categoryGormRepository) Create(ctx context.Context, category *domain.Category) error {
+	return r.db.WithContext(ctx).Create(category).Error
 }
 
-func (r *categoryMemoryRepository) Update(ctx context.Context, category *domain.Category) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
+func (r *categoryGormRepository) Update(ctx context.Context, category *domain.Category) error {
+	return r.db.WithContext(ctx).Save(category).Error
+}
 
-	oldCategory, ok := r.data[category.ID]
-	if !ok {
+func (r *categoryGormRepository) Delete(ctx context.Context, id uint) error {
+	result := r.db.WithContext(ctx).Delete(&domain.Category{}, id)
+	if result.Error != nil {
+		return result.Error
+	}
+
+	if result.RowsAffected == 0 {
 		return ErrCategoryRecordNotFound
 	}
 
-	category.CreatedAt = oldCategory.CreatedAt
-	category.UpdatedAt = time.Now()
-
-	r.data[category.ID] = *category
-
 	return nil
 }
 
-func (r *categoryMemoryRepository) Delete(ctx context.Context, id uint) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
+func (r *categoryGormRepository) ExistsByName(ctx context.Context, name string) (bool, error) {
+	var count int64
 
-	if _, ok := r.data[id]; !ok {
-		return ErrCategoryRecordNotFound
-	}
+	err := r.db.WithContext(ctx).
+		Model(&domain.Category{}).
+		Where("LOWER(name) = ?", strings.ToLower(name)).
+		Count(&count).Error
 
-	delete(r.data, id)
-
-	return nil
-}
-
-func (r *categoryMemoryRepository) ExistsByName(ctx context.Context, name string) (bool, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
-	for _, category := range r.data {
-		if strings.EqualFold(category.Name, name) {
-			return true, nil
-		}
-	}
-
-	return false, nil
+	return count > 0, err
 }

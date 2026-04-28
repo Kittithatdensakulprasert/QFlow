@@ -5,14 +5,19 @@ import (
 	"testing"
 
 	"qflow/internal/domain"
-	"qflow/internal/repository"
 
 	"github.com/stretchr/testify/assert"
 )
 
+func newTestCategoryService() domain.CategoryService {
+	return NewCategoryService(&mockCategoryRepository{
+		data:   map[uint]domain.Category{},
+		nextID: 1,
+	})
+}
+
 func TestCreateCategory_Success(t *testing.T) {
-	repo := repository.NewCategoryMemoryRepository()
-	service := NewCategoryService(repo)
+	service := newTestCategoryService()
 
 	category, err := service.CreateCategory(context.Background(), "ชาบู")
 
@@ -21,7 +26,7 @@ func TestCreateCategory_Success(t *testing.T) {
 }
 
 func TestCreateCategory_NameRequired(t *testing.T) {
-	service := NewCategoryService(repository.NewCategoryMemoryRepository())
+	service := newTestCategoryService()
 
 	category, err := service.CreateCategory(context.Background(), "")
 
@@ -30,7 +35,7 @@ func TestCreateCategory_NameRequired(t *testing.T) {
 }
 
 func TestCreateCategory_Duplicate(t *testing.T) {
-	service := NewCategoryService(repository.NewCategoryMemoryRepository())
+	service := newTestCategoryService()
 
 	_, _ = service.CreateCategory(context.Background(), "ชาบู")
 	category, err := service.CreateCategory(context.Background(), "ชาบู")
@@ -70,7 +75,7 @@ func TestCreateCategory_CreateError(t *testing.T) {
 }
 
 func TestUpdateCategory_Duplicate(t *testing.T) {
-	service := NewCategoryService(repository.NewCategoryMemoryRepository())
+	service := newTestCategoryService()
 
 	c1, _ := service.CreateCategory(context.Background(), "ชาบู")
 	_, _ = service.CreateCategory(context.Background(), "ซูชิ")
@@ -135,7 +140,7 @@ func TestDeleteCategory_DeleteError(t *testing.T) {
 }
 
 func TestGetCategories_Success(t *testing.T) {
-	service := NewCategoryService(repository.NewCategoryMemoryRepository())
+	service := newTestCategoryService()
 
 	categories, err := service.GetCategories(context.Background())
 
@@ -144,7 +149,7 @@ func TestGetCategories_Success(t *testing.T) {
 }
 
 func TestGetCategory_Success(t *testing.T) {
-	service := NewCategoryService(repository.NewCategoryMemoryRepository())
+	service := newTestCategoryService()
 
 	created, _ := service.CreateCategory(context.Background(), "ชาบู")
 
@@ -157,7 +162,7 @@ func TestGetCategory_Success(t *testing.T) {
 }
 
 func TestGetCategory_NotFound(t *testing.T) {
-	service := NewCategoryService(repository.NewCategoryMemoryRepository())
+	service := newTestCategoryService()
 
 	category, err := service.GetCategory(context.Background(), 999)
 
@@ -166,7 +171,7 @@ func TestGetCategory_NotFound(t *testing.T) {
 }
 
 func TestUpdateCategory_NameRequired(t *testing.T) {
-	service := NewCategoryService(repository.NewCategoryMemoryRepository())
+	service := newTestCategoryService()
 
 	category, err := service.UpdateCategory(context.Background(), 1, "")
 
@@ -175,7 +180,7 @@ func TestUpdateCategory_NameRequired(t *testing.T) {
 }
 
 func TestUpdateCategory_NotFound(t *testing.T) {
-	service := NewCategoryService(repository.NewCategoryMemoryRepository())
+	service := newTestCategoryService()
 
 	category, err := service.UpdateCategory(context.Background(), 999, "ชาบู")
 
@@ -184,7 +189,7 @@ func TestUpdateCategory_NotFound(t *testing.T) {
 }
 
 func TestUpdateCategory_Success(t *testing.T) {
-	service := NewCategoryService(repository.NewCategoryMemoryRepository())
+	service := newTestCategoryService()
 
 	created, _ := service.CreateCategory(context.Background(), "ชาบู")
 
@@ -196,7 +201,7 @@ func TestUpdateCategory_Success(t *testing.T) {
 }
 
 func TestDeleteCategory_NotFound(t *testing.T) {
-	service := NewCategoryService(repository.NewCategoryMemoryRepository())
+	service := newTestCategoryService()
 
 	err := service.DeleteCategory(context.Background(), 999)
 
@@ -204,7 +209,7 @@ func TestDeleteCategory_NotFound(t *testing.T) {
 }
 
 func TestDeleteCategory_Success(t *testing.T) {
-	service := NewCategoryService(repository.NewCategoryMemoryRepository())
+	service := newTestCategoryService()
 
 	created, _ := service.CreateCategory(context.Background(), "ชาบู")
 
