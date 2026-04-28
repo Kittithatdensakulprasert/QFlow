@@ -3,16 +3,84 @@ package handler
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"qflow/internal/domain"
+	"qflow/internal/service"
 	"testing"
 
 	"github.com/gin-gonic/gin"
 )
 
+type mockProviderService struct {
+	providers []domain.Provider
+	zones     []domain.Zone
+	err       error
+}
+
+func (m *mockProviderService) CreateProvider(name string, categoryID uint) (*domain.Provider, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+	provider := domain.Provider{ID: uint(len(m.providers) + 1), Name: name}
+	if categoryID > 0 {
+		provider.CategoryID = &categoryID
+	}
+	m.providers = append(m.providers, provider)
+	return &provider, nil
+}
+
+func (m *mockProviderService) GetProviders() ([]domain.Provider, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+	return m.providers, nil
+}
+
+func (m *mockProviderService) CreateZone(providerID uint, name string) (*domain.Zone, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+	zone := domain.Zone{
+		ID:         uint(len(m.zones) + 1),
+		ProviderID: providerID,
+		Name:       name,
+		IsOpen:     true,
+		QueueCount: 0,
+	}
+	m.zones = append(m.zones, zone)
+	return &zone, nil
+}
+
+func (m *mockProviderService) GetZones(providerID uint) ([]domain.Zone, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+	result := []domain.Zone{}
+	for _, zone := range m.zones {
+		if zone.ProviderID == providerID {
+			result = append(result, zone)
+		}
+	}
+	return result, nil
+}
+
+func (m *mockProviderService) ToggleZone(id uint) (*domain.Zone, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+	for i := range m.zones {
+		if m.zones[i].ID == id {
+			m.zones[i].IsOpen = !m.zones[i].IsOpen
+			return &m.zones[i], nil
+		}
+	}
+	return nil, service.ErrZoneNotFound
+}
+
 func TestCreateProvider(t *testing.T) {
-	router := setupProviderTestRouter()
+	router, _ := setupProviderTestRouter()
 
 	res := performProviderRequest(router, http.MethodPost, "/api/providers", `{"name":"Bangkok Clinic"}`)
 
@@ -31,8 +99,8 @@ func TestCreateProvider(t *testing.T) {
 }
 
 func TestGetProviders(t *testing.T) {
-	router := setupProviderTestRouter()
-	performProviderRequest(router, http.MethodPost, "/api/providers", `{"name":"Bangkok Clinic"}`)
+	router, svc := setupProviderTestRouter()
+	svc.providers = append(svc.providers, domain.Provider{ID: 1, Name: "Bangkok Clinic"})
 
 	res := performProviderRequest(router, http.MethodGet, "/api/providers", "")
 
@@ -51,8 +119,7 @@ func TestGetProviders(t *testing.T) {
 }
 
 func TestCreateAndGetZones(t *testing.T) {
-	router := setupProviderTestRouter()
-	performProviderRequest(router, http.MethodPost, "/api/providers", `{"name":"Bangkok Clinic"}`)
+	router, svc := setupProviderTestRouter()
 
 	res := performProviderRequest(router, http.MethodPost, "/api/providers/1/zones", `{"name":"Counter A"}`)
 
@@ -69,6 +136,7 @@ func TestCreateAndGetZones(t *testing.T) {
 		t.Fatalf("unexpected zone: %+v", zone)
 	}
 
+	svc.zones[0].QueueCount = 2
 	res = performProviderRequest(router, http.MethodGet, "/api/providers/1/zones", "")
 
 	if res.Code != http.StatusOK {
@@ -80,15 +148,14 @@ func TestCreateAndGetZones(t *testing.T) {
 		t.Fatalf("decode zones: %v", err)
 	}
 
-	if len(zones) != 1 || zones[0].Name != "Counter A" || zones[0].QueueCount != 0 {
+	if len(zones) != 1 || zones[0].Name != "Counter A" || zones[0].QueueCount != 2 {
 		t.Fatalf("unexpected zones: %+v", zones)
 	}
 }
 
 func TestToggleZone(t *testing.T) {
-	router := setupProviderTestRouter()
-	performProviderRequest(router, http.MethodPost, "/api/providers", `{"name":"Bangkok Clinic"}`)
-	performProviderRequest(router, http.MethodPost, "/api/providers/1/zones", `{"name":"Counter A"}`)
+	router, svc := setupProviderTestRouter()
+	svc.zones = append(svc.zones, domain.Zone{ID: 1, ProviderID: 1, Name: "Counter A", IsOpen: true})
 
 	res := performProviderRequest(router, http.MethodPatch, "/api/zones/1/toggle", "")
 
@@ -107,7 +174,8 @@ func TestToggleZone(t *testing.T) {
 }
 
 func TestCreateZoneRequiresExistingProvider(t *testing.T) {
-	router := setupProviderTestRouter()
+	router, svc := setupProviderTestRouter()
+	svc.err = service.ErrProviderNotFound
 
 	res := performProviderRequest(router, http.MethodPost, "/api/providers/99/zones", `{"name":"Counter A"}`)
 
@@ -116,11 +184,23 @@ func TestCreateZoneRequiresExistingProvider(t *testing.T) {
 	}
 }
 
-func setupProviderTestRouter() *gin.Engine {
+func TestProviderHandlerReturnsInternalServerError(t *testing.T) {
+	router, svc := setupProviderTestRouter()
+	svc.err = errors.New("db down")
+
+	res := performProviderRequest(router, http.MethodGet, "/api/providers", "")
+
+	if res.Code != http.StatusInternalServerError {
+		t.Fatalf("expected status %d, got %d", http.StatusInternalServerError, res.Code)
+	}
+}
+
+func setupProviderTestRouter() (*gin.Engine, *mockProviderService) {
 	gin.SetMode(gin.TestMode)
 
 	router := gin.New()
-	provider := NewProviderHandler()
+	svc := &mockProviderService{}
+	provider := NewProviderHandler(svc)
 	api := router.Group("/api")
 	api.POST("/providers", provider.CreateProvider)
 	api.GET("/providers", provider.GetProviders)
@@ -128,7 +208,7 @@ func setupProviderTestRouter() *gin.Engine {
 	api.GET("/providers/:id/zones", provider.GetZones)
 	api.PATCH("/zones/:id/toggle", provider.ToggleZone)
 
-	return router
+	return router, svc
 }
 
 func performProviderRequest(router *gin.Engine, method string, path string, body string) *httptest.ResponseRecorder {

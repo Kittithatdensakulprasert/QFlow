@@ -1,72 +1,58 @@
 package handler
 
 import (
+	"errors"
 	"net/http"
 	"qflow/internal/domain"
+	"qflow/internal/service"
 	"strconv"
-	"strings"
-	"sync"
 
 	"github.com/gin-gonic/gin"
 )
 
 type ProviderHandler struct {
-	mu             sync.Mutex
-	providers      []domain.Provider
-	zones          []domain.Zone
-	nextProviderID uint
-	nextZoneID     uint
+	svc domain.ProviderService
 }
 
 type createProviderRequest struct {
-	Name string `json:"name"`
+	Name       string `json:"name" binding:"required"`
+	CategoryID uint   `json:"category_id"`
 }
 
 type createZoneRequest struct {
-	Name string `json:"name"`
+	Name string `json:"name" binding:"required"`
 }
 
-func NewProviderHandler() *ProviderHandler {
-	return &ProviderHandler{
-		providers:      make([]domain.Provider, 0),
-		zones:          make([]domain.Zone, 0),
-		nextProviderID: 1,
-		nextZoneID:     1,
-	}
+func NewProviderHandler(svc domain.ProviderService) *ProviderHandler {
+	return &ProviderHandler{svc: svc}
 }
 
 func (h *ProviderHandler) CreateProvider(c *gin.Context) {
 	var req createProviderRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"message": "invalid request body"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	req.Name = strings.TrimSpace(req.Name)
-	if req.Name == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"message": "name is required"})
+	provider, err := h.svc.CreateProvider(req.Name, req.CategoryID)
+	if err != nil {
+		if errors.Is(err, service.ErrProviderNameRequired) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-
-	h.mu.Lock()
-	defer h.mu.Unlock()
-
-	provider := domain.Provider{
-		ID:   h.nextProviderID,
-		Name: req.Name,
-	}
-	h.nextProviderID++
-	h.providers = append(h.providers, provider)
 
 	c.JSON(http.StatusCreated, provider)
 }
 
 func (h *ProviderHandler) GetProviders(c *gin.Context) {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-
-	providers := make([]domain.Provider, len(h.providers))
-	copy(providers, h.providers)
+	providers, err := h.svc.GetProviders()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
 
 	c.JSON(http.StatusOK, providers)
 }
@@ -79,33 +65,22 @@ func (h *ProviderHandler) CreateZone(c *gin.Context) {
 
 	var req createZoneRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"message": "invalid request body"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	req.Name = strings.TrimSpace(req.Name)
-	if req.Name == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"message": "name is required"})
+	zone, err := h.svc.CreateZone(providerID, req.Name)
+	if err != nil {
+		switch {
+		case errors.Is(err, service.ErrZoneNameRequired):
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		case errors.Is(err, service.ErrProviderNotFound):
+			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		default:
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		}
 		return
 	}
-
-	h.mu.Lock()
-	defer h.mu.Unlock()
-
-	if !h.providerExists(providerID) {
-		c.JSON(http.StatusNotFound, gin.H{"message": "provider not found"})
-		return
-	}
-
-	zone := domain.Zone{
-		ID:         h.nextZoneID,
-		ProviderID: providerID,
-		Name:       req.Name,
-		IsOpen:     true,
-		QueueCount: 0,
-	}
-	h.nextZoneID++
-	h.zones = append(h.zones, zone)
 
 	c.JSON(http.StatusCreated, zone)
 }
@@ -116,22 +91,17 @@ func (h *ProviderHandler) GetZones(c *gin.Context) {
 		return
 	}
 
-	h.mu.Lock()
-	defer h.mu.Unlock()
-
-	if !h.providerExists(providerID) {
-		c.JSON(http.StatusNotFound, gin.H{"message": "provider not found"})
+	zones, err := h.svc.GetZones(providerID)
+	if err != nil {
+		if errors.Is(err, service.ErrProviderNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	providerZones := make([]domain.Zone, 0)
-	for _, zone := range h.zones {
-		if zone.ProviderID == providerID {
-			providerZones = append(providerZones, zone)
-		}
-	}
-
-	c.JSON(http.StatusOK, providerZones)
+	c.JSON(http.StatusOK, zones)
 }
 
 func (h *ProviderHandler) ToggleZone(c *gin.Context) {
@@ -140,33 +110,23 @@ func (h *ProviderHandler) ToggleZone(c *gin.Context) {
 		return
 	}
 
-	h.mu.Lock()
-	defer h.mu.Unlock()
-
-	for i := range h.zones {
-		if h.zones[i].ID == zoneID {
-			h.zones[i].IsOpen = !h.zones[i].IsOpen
-			c.JSON(http.StatusOK, h.zones[i])
+	zone, err := h.svc.ToggleZone(zoneID)
+	if err != nil {
+		if errors.Is(err, service.ErrZoneNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
 			return
 		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
 	}
 
-	c.JSON(http.StatusNotFound, gin.H{"message": "zone not found"})
-}
-
-func (h *ProviderHandler) providerExists(id uint) bool {
-	for _, provider := range h.providers {
-		if provider.ID == id {
-			return true
-		}
-	}
-	return false
+	c.JSON(http.StatusOK, zone)
 }
 
 func parseUintParam(c *gin.Context, name string, errorMessage string) (uint, bool) {
 	value, err := strconv.ParseUint(c.Param(name), 10, 64)
 	if err != nil || value == 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"message": errorMessage})
+		c.JSON(http.StatusBadRequest, gin.H{"error": errorMessage})
 		return 0, false
 	}
 
