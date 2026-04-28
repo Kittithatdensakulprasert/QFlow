@@ -51,9 +51,9 @@ func (h *AuthHandler) RequestOTP(c *gin.Context) {
 	}
 
 	// Delivery behavior:
-	// - Development/testing: return OTP in response for local/manual verification.
-	// - Production: do not expose OTP in response; requires real SMS integration.
-	if os.Getenv("APP_ENV") != "production" {
+	// - OTP is exposed only when explicitly enabled for local testing.
+	// - Default behavior never returns OTP in API response.
+	if os.Getenv("APP_ENV") == "development" && os.Getenv("RETURN_OTP_IN_RESPONSE") == "true" {
 		c.JSON(http.StatusOK, gin.H{
 			"message": "otp sent",
 			"otp":     code,
