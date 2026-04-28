@@ -18,10 +18,10 @@ type CategoryHandler struct {
 
 func NewCategoryHandler() *CategoryHandler {
 	repo := repository.NewCategoryGormRepository(db.DB)
-	svc := service.NewCategoryService(repo)
+	categoryService := service.NewCategoryService(repo)
 
 	return &CategoryHandler{
-		service: svc,
+		service: categoryService,
 	}
 }
 
@@ -32,7 +32,7 @@ type categoryRequest struct {
 func (h *CategoryHandler) GetCategories(c *gin.Context) {
 	categories, err := h.service.GetCategories(c.Request.Context())
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"message": "failed to get categories"})
+		respondError(c, http.StatusInternalServerError, "INTERNAL_SERVER_ERROR", "failed to get categories")
 		return
 	}
 
@@ -40,11 +40,20 @@ func (h *CategoryHandler) GetCategories(c *gin.Context) {
 }
 
 func (h *CategoryHandler) GetCategory(c *gin.Context) {
-	id, _ := strconv.Atoi(c.Param("id"))
+	id, err := parseID(c.Param("id"))
+	if err != nil {
+		respondError(c, http.StatusBadRequest, "INVALID_ID", "category id must be a number")
+		return
+	}
 
-	category, err := h.service.GetCategory(c.Request.Context(), uint(id))
+	category, err := h.service.GetCategory(c.Request.Context(), id)
 	if errors.Is(err, service.ErrCategoryNotFound) {
-		c.JSON(http.StatusNotFound, gin.H{"message": "category not found"})
+		respondError(c, http.StatusNotFound, "CATEGORY_NOT_FOUND", "category not found")
+		return
+	}
+
+	if err != nil {
+		respondError(c, http.StatusInternalServerError, "INTERNAL_SERVER_ERROR", "failed to get category")
 		return
 	}
 
@@ -53,17 +62,25 @@ func (h *CategoryHandler) GetCategory(c *gin.Context) {
 
 func (h *CategoryHandler) CreateCategory(c *gin.Context) {
 	var req categoryRequest
-	c.ShouldBindJSON(&req)
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		respondError(c, http.StatusBadRequest, "INVALID_REQUEST_BODY", "invalid JSON body")
+		return
+	}
 
 	category, err := h.service.CreateCategory(c.Request.Context(), req.Name)
-
 	if errors.Is(err, service.ErrCategoryNameRequired) {
-		c.JSON(http.StatusBadRequest, gin.H{"message": "name required"})
+		respondError(c, http.StatusBadRequest, "VALIDATION_ERROR", "category name is required")
 		return
 	}
 
 	if errors.Is(err, service.ErrCategoryDuplicate) {
-		c.JSON(http.StatusConflict, gin.H{"message": "duplicate"})
+		respondError(c, http.StatusConflict, "CATEGORY_DUPLICATE", "category name already exists")
+		return
+	}
+
+	if err != nil {
+		respondError(c, http.StatusInternalServerError, "INTERNAL_SERVER_ERROR", "failed to create category")
 		return
 	}
 
@@ -71,15 +88,37 @@ func (h *CategoryHandler) CreateCategory(c *gin.Context) {
 }
 
 func (h *CategoryHandler) UpdateCategory(c *gin.Context) {
-	id, _ := strconv.Atoi(c.Param("id"))
+	id, err := parseID(c.Param("id"))
+	if err != nil {
+		respondError(c, http.StatusBadRequest, "INVALID_ID", "category id must be a number")
+		return
+	}
 
 	var req categoryRequest
-	c.ShouldBindJSON(&req)
 
-	category, err := h.service.UpdateCategory(c.Request.Context(), uint(id), req.Name)
+	if err := c.ShouldBindJSON(&req); err != nil {
+		respondError(c, http.StatusBadRequest, "INVALID_REQUEST_BODY", "invalid JSON body")
+		return
+	}
+
+	category, err := h.service.UpdateCategory(c.Request.Context(), id, req.Name)
+	if errors.Is(err, service.ErrCategoryNameRequired) {
+		respondError(c, http.StatusBadRequest, "VALIDATION_ERROR", "category name is required")
+		return
+	}
 
 	if errors.Is(err, service.ErrCategoryNotFound) {
-		c.JSON(http.StatusNotFound, gin.H{"message": "not found"})
+		respondError(c, http.StatusNotFound, "CATEGORY_NOT_FOUND", "category not found")
+		return
+	}
+
+	if errors.Is(err, service.ErrCategoryDuplicate) {
+		respondError(c, http.StatusConflict, "CATEGORY_DUPLICATE", "category name already exists")
+		return
+	}
+
+	if err != nil {
+		respondError(c, http.StatusInternalServerError, "INTERNAL_SERVER_ERROR", "failed to update category")
 		return
 	}
 
@@ -87,13 +126,40 @@ func (h *CategoryHandler) UpdateCategory(c *gin.Context) {
 }
 
 func (h *CategoryHandler) DeleteCategory(c *gin.Context) {
-	id, _ := strconv.Atoi(c.Param("id"))
+	id, err := parseID(c.Param("id"))
+	if err != nil {
+		respondError(c, http.StatusBadRequest, "INVALID_ID", "category id must be a number")
+		return
+	}
 
-	err := h.service.DeleteCategory(c.Request.Context(), uint(id))
+	err = h.service.DeleteCategory(c.Request.Context(), id)
 	if errors.Is(err, service.ErrCategoryNotFound) {
-		c.JSON(http.StatusNotFound, gin.H{"message": "not found"})
+		respondError(c, http.StatusNotFound, "CATEGORY_NOT_FOUND", "category not found")
+		return
+	}
+
+	if err != nil {
+		respondError(c, http.StatusInternalServerError, "INTERNAL_SERVER_ERROR", "failed to delete category")
 		return
 	}
 
 	c.Status(http.StatusNoContent)
+}
+
+func parseID(idParam string) (uint, error) {
+	id, err := strconv.ParseUint(idParam, 10, 64)
+	if err != nil {
+		return 0, err
+	}
+
+	return uint(id), nil
+}
+
+func respondError(c *gin.Context, status int, errorCode string, message string) {
+	c.JSON(status, gin.H{
+		"status":  status,
+		"error":   errorCode,
+		"message": message,
+		"path":    c.Request.URL.Path,
+	})
 }

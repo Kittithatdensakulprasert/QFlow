@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"qflow/internal/domain"
+	"qflow/internal/repository"
 	"strings"
 )
 
@@ -27,8 +28,12 @@ func (s *categoryService) GetCategories(ctx context.Context) ([]domain.Category,
 
 func (s *categoryService) GetCategory(ctx context.Context, id uint) (*domain.Category, error) {
 	category, err := s.repo.FindByID(ctx, id)
-	if err != nil {
+	if errors.Is(err, repository.ErrCategoryRecordNotFound) {
 		return nil, ErrCategoryNotFound
+	}
+
+	if err != nil {
+		return nil, err
 	}
 
 	return category, nil
@@ -69,8 +74,12 @@ func (s *categoryService) UpdateCategory(ctx context.Context, id uint, name stri
 	}
 
 	category, err := s.repo.FindByID(ctx, id)
-	if err != nil {
+	if errors.Is(err, repository.ErrCategoryRecordNotFound) {
 		return nil, ErrCategoryNotFound
+	}
+
+	if err != nil {
+		return nil, err
 	}
 
 	if !strings.EqualFold(category.Name, name) {
@@ -94,8 +103,13 @@ func (s *categoryService) UpdateCategory(ctx context.Context, id uint, name stri
 }
 
 func (s *categoryService) DeleteCategory(ctx context.Context, id uint) error {
-	if _, err := s.repo.FindByID(ctx, id); err != nil {
+	_, err := s.repo.FindByID(ctx, id)
+	if errors.Is(err, repository.ErrCategoryRecordNotFound) {
 		return ErrCategoryNotFound
+	}
+
+	if err != nil {
+		return err
 	}
 
 	if err := s.repo.Delete(ctx, id); err != nil {

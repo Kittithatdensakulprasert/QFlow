@@ -217,3 +217,47 @@ func TestDeleteCategory_Success(t *testing.T) {
 
 	assert.NoError(t, err)
 }
+
+func TestGetCategory_RepoError(t *testing.T) {
+	repo := &mockCategoryRepository{
+		findByIDFunc: func(ctx context.Context, id uint) (*domain.Category, error) {
+			return nil, errMockRepo
+		},
+	}
+
+	service := NewCategoryService(repo)
+
+	category, err := service.GetCategory(context.Background(), 1)
+
+	assert.Nil(t, category)
+	assert.Equal(t, errMockRepo, err)
+}
+
+func TestUpdateCategory_RepoError(t *testing.T) {
+	repo := &mockCategoryRepository{
+		findByIDFunc: func(ctx context.Context, id uint) (*domain.Category, error) {
+			return nil, errMockRepo
+		},
+	}
+
+	service := NewCategoryService(repo)
+
+	category, err := service.UpdateCategory(context.Background(), 1, "ชาบู")
+
+	assert.Nil(t, category)
+	assert.Equal(t, errMockRepo, err)
+}
+
+func TestDeleteCategory_RepoError(t *testing.T) {
+	repo := &mockCategoryRepository{
+		findByIDFunc: func(ctx context.Context, id uint) (*domain.Category, error) {
+			return nil, errMockRepo
+		},
+	}
+
+	service := NewCategoryService(repo)
+
+	err := service.DeleteCategory(context.Background(), 1)
+
+	assert.Equal(t, errMockRepo, err)
+}

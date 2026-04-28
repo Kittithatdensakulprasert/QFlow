@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"qflow/internal/domain"
+	"qflow/internal/repository"
 	"strings"
 )
 
@@ -41,7 +42,8 @@ func (m *mockCategoryRepository) FindByID(ctx context.Context, id uint) (*domain
 
 	category, ok := m.data[id]
 	if !ok {
-		return nil, errors.New("category not found")
+		// ✅ FIX: ใช้ sentinel error เดียวกับ repository จริง
+		return nil, repository.ErrCategoryRecordNotFound
 	}
 
 	return &category, nil
