@@ -23,8 +23,8 @@ func Setup(r *gin.Engine, providerSvc domain.ProviderService, queueSvc domain.Qu
 	api.POST("/auth/request-otp", auth.RequestOTP)
 	api.POST("/auth/verify-otp", auth.VerifyOTP)
 	api.POST("/auth/register", auth.Register)
-	api.GET("/auth/me", auth.GetProfile)
-	api.PUT("/auth/me", auth.UpdateProfile)
+	protected.GET("/auth/me", auth.GetProfile)
+	protected.PUT("/auth/me", auth.UpdateProfile)
 
 	// Category
 	api.GET("/categories", category.GetCategories)

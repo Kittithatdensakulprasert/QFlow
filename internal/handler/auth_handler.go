@@ -1,18 +1,21 @@
 package handler
 
 import (
+	"crypto/rand"
 	"errors"
+	"math/big"
 	"net/http"
 	"os"
 	"qflow/db"
 	"qflow/internal/domain"
-	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 	"gorm.io/gorm"
 )
+
+var bigTen = big.NewInt(10)
 
 type AuthHandler struct{}
 
@@ -29,9 +32,15 @@ func (h *AuthHandler) RequestOTP(c *gin.Context) {
 		return
 	}
 
+	code, err := generateOTPCode()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to generate otp"})
+		return
+	}
+
 	otp := domain.OTP{
 		Phone:     body.Phone,
-		Code:      "123456",
+		Code:      code,
 		ExpiresAt: time.Now().Add(5 * time.Minute),
 		Used:      false,
 	}
@@ -42,7 +51,6 @@ func (h *AuthHandler) RequestOTP(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "otp sent",
-		"otp":     "123456", // demo/dev only
 	})
 }
 
@@ -139,7 +147,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 func (h *AuthHandler) GetProfile(c *gin.Context) {
 	userID, ok := resolveAuthUserID(c)
 	if !ok {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "user_id is required"})
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
 	}
 
@@ -155,7 +163,7 @@ func (h *AuthHandler) GetProfile(c *gin.Context) {
 func (h *AuthHandler) UpdateProfile(c *gin.Context) {
 	userID, ok := resolveAuthUserID(c)
 	if !ok {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "user_id is required"})
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
 	}
 
@@ -212,13 +220,17 @@ func resolveAuthUserID(c *gin.Context) (uint, bool) {
 		}
 	}
 
-	userIDQuery := c.Query("user_id")
-	if userIDQuery == "" {
-		return 0, false
+	return 0, false
+}
+
+func generateOTPCode() (string, error) {
+	code := make([]byte, 6)
+	for i := range code {
+		n, err := rand.Int(rand.Reader, bigTen)
+		if err != nil {
+			return "", err
+		}
+		code[i] = byte('0' + n.Int64())
 	}
-	parsed, err := strconv.ParseUint(userIDQuery, 10, 64)
-	if err != nil || parsed == 0 {
-		return 0, false
-	}
-	return uint(parsed), true
+	return string(code), nil
 }
