@@ -35,7 +35,6 @@ func (h *NotificationHandler) GetNotifications(c *gin.Context) {
 
 func (h *NotificationHandler) SendNotification(c *gin.Context) {
 	var body struct {
-		UserID  uint   `json:"user_id" binding:"required"`
 		Message string `json:"message" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
@@ -43,7 +42,13 @@ func (h *NotificationHandler) SendNotification(c *gin.Context) {
 		return
 	}
 
-	n, err := h.svc.SendNotification(body.UserID, body.Message)
+	userID, ok := resolveNotificationUserID(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	n, err := h.svc.SendNotification(userID, body.Message)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -107,20 +112,28 @@ func (h *NotificationHandler) DeleteNotification(c *gin.Context) {
 
 func resolveNotificationUserID(c *gin.Context) (uint, bool) {
 	userIDVal, exists := c.Get("user_id")
-	if !exists {
-		return 0, false
-	}
-	switch v := userIDVal.(type) {
-	case uint:
-		return v, true
-	case int:
-		if v > 0 {
-			return uint(v), true
+	if exists {
+		switch v := userIDVal.(type) {
+		case uint:
+			return v, true
+		case int:
+			if v > 0 {
+				return uint(v), true
+			}
+		case float64:
+			if v > 0 {
+				return uint(v), true
+			}
 		}
-	case float64:
-		if v > 0 {
-			return uint(v), true
+	}
+
+	userIDQuery := c.Query("user_id")
+	if userIDQuery != "" {
+		userID, err := strconv.ParseUint(userIDQuery, 10, 64)
+		if err == nil && userID > 0 {
+			return uint(userID), true
 		}
 	}
+
 	return 0, false
 }

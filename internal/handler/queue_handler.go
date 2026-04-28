@@ -85,15 +85,6 @@ func (h *QueueHandler) GetQueue(c *gin.Context) {
 		return
 	}
 
-	requestUserID := resolveUserID(c, parseOptionalUint(c.Query("user_id")))
-	if requestUserID == 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "user_id is required"})
-		return
-	}
-	if queue.UserID != requestUserID {
-		c.JSON(http.StatusForbidden, gin.H{"error": "queue does not belong to user"})
-		return
-	}
 	c.JSON(http.StatusOK, queue)
 }
 
