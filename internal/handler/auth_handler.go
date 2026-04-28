@@ -32,8 +32,9 @@ func (h *AuthHandler) RequestOTP(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"message": "OTP sent successfully",
-		"otp_id":  otp.ID,
+		"message":  "OTP sent successfully",
+		"otp_id":   otp.ID,
+		"otp_code": otp.Code,
 	})
 }
 
