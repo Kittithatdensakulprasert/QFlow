@@ -3,28 +3,42 @@ package router
 import (
 	"qflow/internal/domain"
 	"qflow/internal/handler"
+	"qflow/internal/jwt"
 	"qflow/internal/middleware"
 
 	"github.com/gin-gonic/gin"
 )
 
-func Setup(r *gin.Engine, providerSvc domain.ProviderService, queueSvc domain.QueueService, notificationSvc domain.NotificationService, jwtSecret string) {
-	auth := handler.NewAuthHandler()
+func Setup(
+	r *gin.Engine,
+	providerSvc domain.ProviderService,
+	queueSvc domain.QueueService,
+	notificationSvc domain.NotificationService,
+	authSvc domain.AuthService,
+	jwtManager *jwt.JWTManager,
+) {
+	auth := handler.NewAuthHandler(authSvc)
 	category := handler.NewCategoryHandler()
 	provider := handler.NewProviderHandler(providerSvc)
 	queue := handler.NewQueueHandler(queueSvc)
 	notification := handler.NewNotificationHandler(notificationSvc)
 
 	api := r.Group("/api")
-	protected := api.Group("/")
-	protected.Use(middleware.JWTAuth(jwtSecret))
 
-	// Auth
+	// Public Auth routes
 	api.POST("/auth/request-otp", auth.RequestOTP)
 	api.POST("/auth/verify-otp", auth.VerifyOTP)
 	api.POST("/auth/register", auth.Register)
+
+	// Protected routes
+	protected := api.Group("/")
+	protected.Use(middleware.JWTAuth(jwtManager))
 	protected.GET("/auth/me", auth.GetProfile)
 	protected.PUT("/auth/me", auth.UpdateProfile)
+	protected.GET("/notifications", notification.GetNotifications)
+	protected.POST("/notifications/send", notification.SendNotification)
+	protected.PATCH("/notifications/:id/read", notification.MarkNotificationRead)
+	protected.DELETE("/notifications/:id", notification.DeleteNotification)
 
 	// Category
 	api.GET("/categories", category.GetCategories)
@@ -51,10 +65,4 @@ func Setup(r *gin.Engine, providerSvc domain.ProviderService, queueSvc domain.Qu
 	api.PATCH("/manage/queues/:id/call", queue.CallQueue)
 	api.PATCH("/manage/queues/:id/complete", queue.CompleteQueue)
 	api.PATCH("/manage/queues/:id/skip", queue.SkipQueue)
-
-	// Notification
-	protected.GET("/notifications", notification.GetNotifications)
-	protected.POST("/notifications/send", notification.SendNotification)
-	protected.PATCH("/notifications/:id/read", notification.MarkNotificationRead)
-	protected.DELETE("/notifications/:id", notification.DeleteNotification)
 }
