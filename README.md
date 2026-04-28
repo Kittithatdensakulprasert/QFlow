@@ -134,7 +134,7 @@ QFlow/
 | `GET` | `/api/notifications` | ดูแจ้งเตือนทั้งหมด | User |
 | `PATCH` | `/api/notifications/:id/read` | ทำเครื่องหมายว่าอ่านแล้ว | User |
 | `DELETE` | `/api/notifications/:id` | ลบแจ้งเตือน | User |
-| `POST` | `/api/notifications/send` | ส่งการแจ้งเตือน (ระบบ) | System |
+| `POST` | `/api/notifications/send` | สร้างการแจ้งเตือนให้ผู้ใช้ที่ล็อกอินอยู่ | User |
 
 ---
 
