@@ -1,6 +1,7 @@
 package main
 
 import (
+	"log"
 	"qflow/config"
 	"qflow/db"
 	"qflow/internal/repository"
@@ -12,6 +13,9 @@ import (
 
 func main() {
 	cfg := config.Load()
+	if cfg.JWTSecret == "" || cfg.JWTSecret == "secret" {
+		log.Fatal("JWT_SECRET must be set to a strong non-default value")
+	}
 
 	database := db.Connect(cfg.DSN)
 	db.Migrate(database)
