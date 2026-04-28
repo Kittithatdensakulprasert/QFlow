@@ -3,12 +3,14 @@ package router
 import (
 	"qflow/internal/domain"
 	"qflow/internal/handler"
+	"qflow/internal/jwt"
+	"qflow/internal/middleware"
 
 	"github.com/gin-gonic/gin"
 )
 
-func Setup(r *gin.Engine, providerSvc domain.ProviderService, queueSvc domain.QueueService, notificationSvc domain.NotificationService) {
-	auth := handler.NewAuthHandler()
+func Setup(r *gin.Engine, providerSvc domain.ProviderService, queueSvc domain.QueueService, notificationSvc domain.NotificationService, authSvc domain.AuthService, jwtManager *jwt.JWTManager) {
+	auth := handler.NewAuthHandler(authSvc)
 	category := handler.NewCategoryHandler()
 	provider := handler.NewProviderHandler(providerSvc)
 	queue := handler.NewQueueHandler(queueSvc)
@@ -16,12 +18,16 @@ func Setup(r *gin.Engine, providerSvc domain.ProviderService, queueSvc domain.Qu
 
 	api := r.Group("/api")
 
-	// Auth
+	// Public Auth routes
 	api.POST("/auth/request-otp", auth.RequestOTP)
 	api.POST("/auth/verify-otp", auth.VerifyOTP)
 	api.POST("/auth/register", auth.Register)
-	api.GET("/auth/me", auth.GetProfile)
-	api.PUT("/auth/me", auth.UpdateProfile)
+
+	// Protected Auth routes
+	protected := api.Group("/auth")
+	protected.Use(middleware.JWTAuth(jwtManager))
+	protected.GET("/me", auth.GetProfile)
+	protected.PUT("/me", auth.UpdateProfile)
 
 	// Category
 	api.GET("/categories", category.GetCategories)
