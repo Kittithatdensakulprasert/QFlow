@@ -7,11 +7,11 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func Setup(r *gin.Engine, notificationSvc domain.NotificationService) {
+func Setup(r *gin.Engine, queueSvc domain.QueueService, notificationSvc domain.NotificationService) {
 	auth := handler.NewAuthHandler()
 	category := handler.NewCategoryHandler()
 	provider := handler.NewProviderHandler()
-	queue := handler.NewQueueHandler()
+	queue := handler.NewQueueHandler(queueSvc)
 	notification := handler.NewNotificationHandler(notificationSvc)
 
 	api := r.Group("/api")
