@@ -23,6 +23,6 @@ type NotificationRepository interface {
 type NotificationService interface {
 	GetNotifications(userID uint) ([]Notification, error)
 	SendNotification(userID uint, message string) (*Notification, error)
-	MarkNotificationRead(id uint) error
-	DeleteNotification(id uint) error
+	MarkNotificationRead(id, userID uint) error
+	DeleteNotification(id, userID uint) error
 }

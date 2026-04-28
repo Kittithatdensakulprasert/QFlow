@@ -5,6 +5,11 @@ import (
 	"qflow/internal/domain"
 )
 
+var (
+	ErrNotificationNotFound  = errors.New("notification not found")
+	ErrNotificationForbidden = errors.New("notification does not belong to user")
+)
+
 type notificationService struct {
 	repo domain.NotificationRepository
 }
@@ -32,10 +37,13 @@ func (s *notificationService) SendNotification(userID uint, message string) (*do
 	return n, nil
 }
 
-func (s *notificationService) MarkNotificationRead(id uint) error {
+func (s *notificationService) MarkNotificationRead(id, userID uint) error {
 	n, err := s.repo.FindByID(id)
 	if err != nil {
-		return errors.New("notification not found")
+		return ErrNotificationNotFound
+	}
+	if n.UserID != userID {
+		return ErrNotificationForbidden
 	}
 	if n.IsRead {
 		return nil
@@ -43,10 +51,13 @@ func (s *notificationService) MarkNotificationRead(id uint) error {
 	return s.repo.MarkRead(id)
 }
 
-func (s *notificationService) DeleteNotification(id uint) error {
-	_, err := s.repo.FindByID(id)
+func (s *notificationService) DeleteNotification(id, userID uint) error {
+	n, err := s.repo.FindByID(id)
 	if err != nil {
-		return errors.New("notification not found")
+		return ErrNotificationNotFound
+	}
+	if n.UserID != userID {
+		return ErrNotificationForbidden
 	}
 	return s.repo.Delete(id)
 }

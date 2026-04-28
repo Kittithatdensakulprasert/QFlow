@@ -11,11 +11,14 @@ import (
 
 func JWTAuth() gin.HandlerFunc {
 	secret := os.Getenv("JWT_SECRET")
-	if secret == "" {
-		secret = "secret"
-	}
 
 	return func(c *gin.Context) {
+		if secret == "" {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "jwt secret is not configured"})
+			c.Abort()
+			return
+		}
+
 		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ") {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "missing or invalid authorization header"})

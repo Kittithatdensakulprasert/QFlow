@@ -128,7 +128,7 @@ func TestMarkNotificationRead(t *testing.T) {
 
 	n, _ := svc.SendNotification(1, "hello")
 
-	err := svc.MarkNotificationRead(n.ID)
+	err := svc.MarkNotificationRead(n.ID, 1)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -144,9 +144,9 @@ func TestMarkNotificationRead_AlreadyRead(t *testing.T) {
 	svc := service.NewNotificationService(repo)
 
 	n, _ := svc.SendNotification(1, "hello")
-	svc.MarkNotificationRead(n.ID)
+	svc.MarkNotificationRead(n.ID, 1)
 
-	err := svc.MarkNotificationRead(n.ID)
+	err := svc.MarkNotificationRead(n.ID, 1)
 	if err != nil {
 		t.Errorf("expected no error for already-read notification, got %v", err)
 	}
@@ -156,9 +156,20 @@ func TestMarkNotificationRead_NotFound(t *testing.T) {
 	repo := newMockRepo()
 	svc := service.NewNotificationService(repo)
 
-	err := svc.MarkNotificationRead(999)
+	err := svc.MarkNotificationRead(999, 1)
 	if err == nil {
 		t.Error("expected error for non-existent notification")
+	}
+}
+
+func TestMarkNotificationRead_Forbidden(t *testing.T) {
+	repo := newMockRepo()
+	svc := service.NewNotificationService(repo)
+
+	n, _ := svc.SendNotification(1, "hello")
+	err := svc.MarkNotificationRead(n.ID, 2)
+	if !errors.Is(err, service.ErrNotificationForbidden) {
+		t.Errorf("expected forbidden error, got %v", err)
 	}
 }
 
@@ -168,7 +179,7 @@ func TestDeleteNotification(t *testing.T) {
 
 	n, _ := svc.SendNotification(1, "to delete")
 
-	err := svc.DeleteNotification(n.ID)
+	err := svc.DeleteNotification(n.ID, 1)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -183,8 +194,19 @@ func TestDeleteNotification_NotFound(t *testing.T) {
 	repo := newMockRepo()
 	svc := service.NewNotificationService(repo)
 
-	err := svc.DeleteNotification(999)
+	err := svc.DeleteNotification(999, 1)
 	if err == nil {
 		t.Error("expected error for non-existent notification")
+	}
+}
+
+func TestDeleteNotification_Forbidden(t *testing.T) {
+	repo := newMockRepo()
+	svc := service.NewNotificationService(repo)
+
+	n, _ := svc.SendNotification(1, "to delete")
+	err := svc.DeleteNotification(n.ID, 2)
+	if !errors.Is(err, service.ErrNotificationForbidden) {
+		t.Errorf("expected forbidden error, got %v", err)
 	}
 }
