@@ -330,13 +330,13 @@ func TestAuthService_UpdateUserProfile(t *testing.T) {
 		setup    func(*mockAuthRepository)
 		wantErr  bool
 	}{
-		{"valid update", 1, "Updated Name", "admin", func(m *mockAuthRepository) {
+		{"valid update", 1, "Updated Name", "", func(m *mockAuthRepository) {
 			user := &domain.User{ID: 1, Phone: "1234567890", Name: "Test User", Role: "user"}
 			m.usersByID[1] = user
 		}, false},
-		{"invalid user ID", 0, "Updated Name", "admin", func(m *mockAuthRepository) {}, true},
-		{"user not found", 999, "Updated Name", "admin", func(m *mockAuthRepository) {}, true},
-		{"update error", 1, "Updated Name", "admin", func(m *mockAuthRepository) {
+		{"invalid user ID", 0, "Updated Name", "", func(m *mockAuthRepository) {}, true},
+		{"user not found", 999, "Updated Name", "", func(m *mockAuthRepository) {}, true},
+		{"update error", 1, "Updated Name", "", func(m *mockAuthRepository) {
 			user := &domain.User{ID: 1, Phone: "1234567890", Name: "Test User", Role: "user"}
 			m.usersByID[1] = user
 			m.updateUserErr = errors.New("database error")
@@ -348,7 +348,7 @@ func TestAuthService_UpdateUserProfile(t *testing.T) {
 		{"partial update role", 1, "", "admin", func(m *mockAuthRepository) {
 			user := &domain.User{ID: 1, Phone: "1234567890", Name: "Test User", Role: "user"}
 			m.usersByID[1] = user
-		}, false},
+		}, true}, // Should fail - role changes not allowed
 	}
 
 	for _, tt := range tests {

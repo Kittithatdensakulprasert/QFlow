@@ -25,7 +25,13 @@ func main() {
 	notificationSvc := service.NewNotificationService(notificationRepo)
 
 	authRepo := repository.NewAuthRepository(database)
-	jwtManager := jwt.NewJWTManager("your-secret-key-here") // Use environment variable in production
+
+	// Validate JWT secret is not the default placeholder
+	if cfg.JWTSecret == "your-secret-key-here" || cfg.JWTSecret == "secret" {
+		panic("JWT_SECRET must be set to a secure value in production")
+	}
+
+	jwtManager := jwt.NewJWTManager(cfg.JWTSecret)
 	authSvc := service.NewAuthService(authRepo, jwtManager)
 
 	r := gin.Default()

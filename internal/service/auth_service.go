@@ -85,9 +85,8 @@ func (s *authService) RegisterUser(phone, name, role, otpCode string) (*domain.U
 		return nil, "", errors.New("name is required")
 	}
 
-	if role == "" {
-		role = "user"
-	}
+	// Force role to be "user" for security - role escalation should be handled by admin-only endpoints
+	role = "user"
 
 	// SECURITY: Check if user already exists
 	existingUser, err := s.authRepo.FindUserByPhone(phone)
@@ -157,8 +156,11 @@ func (s *authService) UpdateUserProfile(userID uint, name, role string) (*domain
 		user.Name = name
 	}
 
-	if role != "" {
-		user.Role = role
+	// Only allow role changes if current user is admin
+	// For now, prevent any role changes through this endpoint
+	// Role management should be handled by admin-only endpoints
+	if role != "" && role != user.Role {
+		return nil, errors.New("role changes are not allowed through this endpoint")
 	}
 
 	if err := s.authRepo.UpdateUser(user); err != nil {
