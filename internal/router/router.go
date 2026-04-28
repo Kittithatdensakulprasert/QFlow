@@ -7,7 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func Setup(r *gin.Engine, notificationSvc domain.NotificationService, authSvc domain.AuthService) {
+func Setup(r *gin.Engine, queueSvc domain.QueueService, notificationSvc domain.NotificationService, authSvc domain.AuthService) {
 	auth := handler.NewAuthHandler(authSvc)
 	category := handler.NewCategoryHandler()
 	provider := handler.NewProviderHandler()

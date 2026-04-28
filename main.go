@@ -23,7 +23,7 @@ func main() {
 	authSvc := service.NewAuthService(authRepo)
 
 	r := gin.Default()
-	router.Setup(r, notificationSvc, authSvc)
+	router.Setup(r, nil, notificationSvc, authSvc)
 
 	r.Run(":" + cfg.Port)
 }
