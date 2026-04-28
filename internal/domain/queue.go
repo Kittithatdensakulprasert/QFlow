@@ -16,8 +16,7 @@ type Queue struct {
 
 type QueueRepository interface {
 	FindZoneByID(id uint) (*Zone, error)
-	GetNextQueueNumber(zoneID uint) (int, error)
-	Create(queue *Queue) error
+	CreateWithNextQueueNumber(queue *Queue) error
 	FindByQueueNumber(queueNumber int) (*Queue, error)
 	FindByID(id uint) (*Queue, error)
 	FindByUserID(userID uint) ([]Queue, error)

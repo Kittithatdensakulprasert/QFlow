@@ -39,3 +39,34 @@ func JWTAuth(jwtManager *jwt.JWTManager) gin.HandlerFunc {
 		c.Next()
 	}
 }
+
+// RequireRole allows only authenticated users with one of the given roles.
+func RequireRole(roles ...string) gin.HandlerFunc {
+	allowed := make(map[string]struct{}, len(roles))
+	for _, role := range roles {
+		allowed[role] = struct{}{}
+	}
+
+	return func(c *gin.Context) {
+		roleValue, exists := c.Get("role")
+		if !exists {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+			c.Abort()
+			return
+		}
+
+		role, ok := roleValue.(string)
+		if !ok {
+			c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+			c.Abort()
+			return
+		}
+		if _, ok := allowed[role]; !ok {
+			c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+			c.Abort()
+			return
+		}
+
+		c.Next()
+	}
+}

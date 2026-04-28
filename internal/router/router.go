@@ -45,23 +45,27 @@ func Setup(
 	protected.GET("/queues/:queueNumber", queue.GetQueue)
 	protected.PATCH("/queues/:id/cancel", queue.CancelQueue)
 
+	admin := protected.Group("/")
+	admin.Use(middleware.RequireRole("admin"))
+	admin.POST("/categories", category.CreateCategory)
+	admin.PUT("/categories/:id", category.UpdateCategory)
+	admin.DELETE("/categories/:id", category.DeleteCategory)
+	admin.POST("/providers", provider.CreateProvider)
+
+	providerRoutes := protected.Group("/")
+	providerRoutes.Use(middleware.RequireRole("provider"))
+	providerRoutes.POST("/providers/:id/zones", provider.CreateZone)
+	providerRoutes.PATCH("/zones/:id/toggle", provider.ToggleZone)
+	providerRoutes.GET("/manage/queues/:zoneId", queue.GetQueuesByZone)
+	providerRoutes.PATCH("/manage/queues/:id/call", queue.CallQueue)
+	providerRoutes.PATCH("/manage/queues/:id/complete", queue.CompleteQueue)
+	providerRoutes.PATCH("/manage/queues/:id/skip", queue.SkipQueue)
+
 	// Category
 	api.GET("/categories", category.GetCategories)
 	api.GET("/categories/:id", category.GetCategory)
-	api.POST("/categories", category.CreateCategory)
-	api.PUT("/categories/:id", category.UpdateCategory)
-	api.DELETE("/categories/:id", category.DeleteCategory)
 
 	// Provider & Zone
-	api.POST("/providers", provider.CreateProvider)
 	api.GET("/providers", provider.GetProviders)
-	api.POST("/providers/:id/zones", provider.CreateZone)
 	api.GET("/providers/:id/zones", provider.GetZones)
-	api.PATCH("/zones/:id/toggle", provider.ToggleZone)
-
-	// Queue Management
-	api.GET("/manage/queues/:zoneId", queue.GetQueuesByZone)
-	api.PATCH("/manage/queues/:id/call", queue.CallQueue)
-	api.PATCH("/manage/queues/:id/complete", queue.CompleteQueue)
-	api.PATCH("/manage/queues/:id/skip", queue.SkipQueue)
 }

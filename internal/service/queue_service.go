@@ -45,18 +45,12 @@ func (s *queueService) BookQueue(userID, zoneID uint) (*domain.Queue, error) {
 		return nil, ErrZoneClosed
 	}
 
-	queueNumber, err := s.repo.GetNextQueueNumber(zoneID)
-	if err != nil {
-		return nil, err
-	}
-
 	queue := &domain.Queue{
-		QueueNumber: queueNumber,
-		ZoneID:      zoneID,
-		UserID:      userID,
-		Status:      "waiting",
+		ZoneID: zoneID,
+		UserID: userID,
+		Status: "waiting",
 	}
-	if err := s.repo.Create(queue); err != nil {
+	if err := s.repo.CreateWithNextQueueNumber(queue); err != nil {
 		return nil, err
 	}
 	queue.Zone = *zone

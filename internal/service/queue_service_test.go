@@ -35,9 +35,9 @@ func (m *mockQueueRepo) FindZoneByID(id uint) (*domain.Zone, error) {
 	return &zone, nil
 }
 
-func (m *mockQueueRepo) GetNextQueueNumber(zoneID uint) (int, error) {
+func (m *mockQueueRepo) CreateWithNextQueueNumber(queue *domain.Queue) error {
 	if m.repoErr != nil {
-		return 0, m.repoErr
+		return m.repoErr
 	}
 	maxQueueNumber := 0
 	for _, queue := range m.queues {
@@ -45,13 +45,7 @@ func (m *mockQueueRepo) GetNextQueueNumber(zoneID uint) (int, error) {
 			maxQueueNumber = queue.QueueNumber
 		}
 	}
-	return maxQueueNumber + 1, nil
-}
-
-func (m *mockQueueRepo) Create(queue *domain.Queue) error {
-	if m.repoErr != nil {
-		return m.repoErr
-	}
+	queue.QueueNumber = maxQueueNumber + 1
 	queue.ID = m.nextID
 	m.nextID++
 	m.queues = append(m.queues, *queue)
