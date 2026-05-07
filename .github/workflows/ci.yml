@@ -1,0 +1,87 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - develop
+      - "feature/**"
+  pull_request:
+    branches:
+      - develop
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  test-and-quality:
+    name: Test and Quality
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Verify formatting
+        run: test -z "$(gofmt -l .)"
+
+      - name: Static checks (go vet)
+        run: go vet ./...
+
+      - name: Build (no type/build errors)
+        run: go build ./...
+
+      - name: Unit tests
+        run: go test ./... -covermode=atomic -coverprofile=coverage.out
+
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-out
+          path: coverage.out
+
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Run gosec (fail on medium+)
+        uses: securego/gosec@master
+        with:
+          args: "-severity medium -confidence medium -fmt sarif -out gosec.sarif ./..."
+
+      - name: Upload gosec SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: gosec.sarif
+
+      - name: Trivy filesystem scan (fail on medium+)
+        uses: aquasecurity/trivy-action@0.35.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln
+          vuln-type: library
+          ignore-unfixed: true
+          format: table
+          exit-code: "1"
+          severity: MEDIUM,HIGH,CRITICAL
