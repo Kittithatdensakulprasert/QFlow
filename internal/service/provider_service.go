@@ -95,12 +95,18 @@ func (s *providerService) GetZones(providerID uint) ([]domain.Zone, error) {
 		return nil, err
 	}
 
+	zoneIDs := make([]uint, 0, len(zones))
 	for i := range zones {
-		count, err := s.repo.CountQueuesByZoneID(zones[i].ID)
-		if err != nil {
-			return nil, err
-		}
-		zones[i].QueueCount = count
+		zoneIDs = append(zoneIDs, zones[i].ID)
+	}
+
+	queueCounts, err := s.repo.CountQueuesByZoneIDs(zoneIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	for i := range zones {
+		zones[i].QueueCount = queueCounts[zones[i].ID]
 	}
 
 	return zones, nil

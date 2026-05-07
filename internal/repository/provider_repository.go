@@ -70,3 +70,28 @@ func (r *providerRepository) CountQueuesByZoneID(zoneID uint) (int, error) {
 	err := r.db.Model(&domain.Queue{}).Where("zone_id = ?", zoneID).Count(&count).Error
 	return int(count), err
 }
+
+func (r *providerRepository) CountQueuesByZoneIDs(zoneIDs []uint) (map[uint]int, error) {
+	counts := make(map[uint]int, len(zoneIDs))
+	if len(zoneIDs) == 0 {
+		return counts, nil
+	}
+
+	var rows []struct {
+		ZoneID uint
+		Count  int
+	}
+	err := r.db.Model(&domain.Queue{}).
+		Select("zone_id, COUNT(*) AS count").
+		Where("zone_id IN ?", zoneIDs).
+		Group("zone_id").
+		Scan(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+
+	for _, row := range rows {
+		counts[row.ZoneID] = row.Count
+	}
+	return counts, nil
+}
