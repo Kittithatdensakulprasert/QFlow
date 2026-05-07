@@ -28,7 +28,7 @@ func (h *AuthHandler) RequestOTP(c *gin.Context) {
 
 	otp, err := h.authService.RequestOTP(req.Phone)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to send OTP"})
 		return
 	}
 

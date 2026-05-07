@@ -42,7 +42,7 @@ func (h *ProviderHandler) CreateProvider(c *gin.Context) {
 		case errors.Is(err, service.ErrProviderCategoryNotFound):
 			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
 		default:
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		}
 		return
 	}
@@ -53,7 +53,7 @@ func (h *ProviderHandler) CreateProvider(c *gin.Context) {
 func (h *ProviderHandler) GetProviders(c *gin.Context) {
 	providers, err := h.svc.GetProviders()
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -80,7 +80,7 @@ func (h *ProviderHandler) CreateZone(c *gin.Context) {
 		case errors.Is(err, service.ErrProviderNotFound):
 			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
 		default:
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		}
 		return
 	}
@@ -100,7 +100,7 @@ func (h *ProviderHandler) GetZones(c *gin.Context) {
 			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -119,7 +119,7 @@ func (h *ProviderHandler) ToggleZone(c *gin.Context) {
 			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 

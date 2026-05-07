@@ -27,7 +27,7 @@ func (h *NotificationHandler) GetNotifications(c *gin.Context) {
 
 	notifications, err := h.svc.GetNotifications(userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 	c.JSON(http.StatusOK, notifications)
@@ -76,7 +76,7 @@ func (h *NotificationHandler) MarkNotificationRead(c *gin.Context) {
 		case errors.Is(err, service.ErrNotificationForbidden):
 			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
 		default:
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		}
 		return
 	}
@@ -103,7 +103,7 @@ func (h *NotificationHandler) DeleteNotification(c *gin.Context) {
 		case errors.Is(err, service.ErrNotificationForbidden):
 			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
 		default:
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		}
 		return
 	}
