@@ -14,3 +14,4 @@ qflow
 *.test
 *.prof
 vendor/
+*.out
