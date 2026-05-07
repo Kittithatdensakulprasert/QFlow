@@ -175,8 +175,13 @@
                       "  pm.expect(pm.response.json()).to.have.property('token');",
                       "});",
                       "const response = pm.response.json();",
-                      "if (response.token) { pm.collectionVariables.set('admin_token', response.token); pm.collectionVariables.set('token', response.token); }",
-                      "if (response.user && response.user.id) { pm.collectionVariables.set('admin_id', response.user.id); }"
+                      "pm.test('Verified user has admin role', function () {",
+                      "  pm.expect(response).to.have.property('user');",
+                      "  pm.expect(response.user).to.have.property('role');",
+                      "  pm.expect(response.user.role).to.equal('admin');",
+                      "});",
+                      "if (response.token && response.user && response.user.role === 'admin') { pm.collectionVariables.set('admin_token', response.token); pm.collectionVariables.set('token', response.token); } else { pm.collectionVariables.set('admin_token', ''); }",
+                      "if (response.user && response.user.id && response.user.role === 'admin') { pm.collectionVariables.set('admin_id', response.user.id); } else { pm.collectionVariables.set('admin_id', ''); }"
                     ]
                   }
                 }
@@ -348,8 +353,13 @@
                       "  pm.expect(pm.response.json()).to.have.property('token');",
                       "});",
                       "const response = pm.response.json();",
-                      "if (response.token) { pm.collectionVariables.set('provider_token', response.token); pm.collectionVariables.set('token', response.token); }",
-                      "if (response.user && response.user.id) { pm.collectionVariables.set('provider_user_id', response.user.id); }"
+                      "pm.test('Verified user has provider role', function () {",
+                      "  pm.expect(response).to.have.property('user');",
+                      "  pm.expect(response.user).to.have.property('role');",
+                      "  pm.expect(response.user.role).to.equal('provider');",
+                      "});",
+                      "if (response.token && response.user && response.user.role === 'provider') { pm.collectionVariables.set('provider_token', response.token); pm.collectionVariables.set('token', response.token); } else { pm.collectionVariables.set('provider_token', ''); }",
+                      "if (response.user && response.user.id && response.user.role === 'provider') { pm.collectionVariables.set('provider_user_id', response.user.id); } else { pm.collectionVariables.set('provider_user_id', ''); }"
                     ]
                   }
                 }
@@ -822,6 +832,20 @@
           ],
           "event": [
             {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// QFLOW_ID_GUARD_category_id",
+                  "const requiredId = (pm.collectionVariables.get('category_id') || '').toString().trim();",
+                  "if (!requiredId) {",
+                  "  console.warn('[SKIP] Missing collection variable: category_id. Run prerequisite creation step first.');",
+                  "  pm.execution.skipRequest();",
+                  "}"
+                ]
+              }
+            },
+            {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
@@ -899,6 +923,12 @@
                   "const token = (pm.collectionVariables.get('admin_token') || '').trim();",
                   "if (!token) {",
                   "  console.warn('[SKIP] Missing collection variable: admin_token. Fill it before running this flow.');",
+                  "  pm.execution.skipRequest();",
+                  "}",
+                  "// QFLOW_ID_GUARD_category_id",
+                  "const requiredId = (pm.collectionVariables.get('category_id') || '').toString().trim();",
+                  "if (!requiredId) {",
+                  "  console.warn('[SKIP] Missing collection variable: category_id. Run prerequisite creation step first.');",
                   "  pm.execution.skipRequest();",
                   "}"
                 ]
@@ -1071,6 +1101,12 @@
                   "if (!token) {",
                   "  console.warn('[SKIP] Missing collection variable: admin_token. Fill it before running this flow.');",
                   "  pm.execution.skipRequest();",
+                  "}",
+                  "// QFLOW_ID_GUARD_category_id",
+                  "const requiredId = (pm.collectionVariables.get('category_id') || '').toString().trim();",
+                  "if (!requiredId) {",
+                  "  console.warn('[SKIP] Missing collection variable: category_id. Run prerequisite creation step first.');",
+                  "  pm.execution.skipRequest();",
                   "}"
                 ]
               }
@@ -1201,6 +1237,12 @@
                   "if (!token) {",
                   "  console.warn('[SKIP] Missing collection variable: provider_token. Fill it before running this flow.');",
                   "  pm.execution.skipRequest();",
+                  "}",
+                  "// QFLOW_ID_GUARD_provider_id",
+                  "const requiredId = (pm.collectionVariables.get('provider_id') || '').toString().trim();",
+                  "if (!requiredId) {",
+                  "  console.warn('[SKIP] Missing collection variable: provider_id. Run prerequisite creation step first.');",
+                  "  pm.execution.skipRequest();",
                   "}"
                 ]
               }
@@ -1253,6 +1295,20 @@
             }
           ],
           "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// QFLOW_ID_GUARD_provider_id",
+                  "const requiredId = (pm.collectionVariables.get('provider_id') || '').toString().trim();",
+                  "if (!requiredId) {",
+                  "  console.warn('[SKIP] Missing collection variable: provider_id. Run prerequisite creation step first.');",
+                  "  pm.execution.skipRequest();",
+                  "}"
+                ]
+              }
+            },
             {
               "listen": "test",
               "script": {
@@ -1337,6 +1393,12 @@
                   "if (!token) {",
                   "  console.warn('[SKIP] Missing collection variable: user_token. Fill it before running this flow.');",
                   "  pm.execution.skipRequest();",
+                  "}",
+                  "// QFLOW_ID_GUARD_zone_id",
+                  "const requiredId = (pm.collectionVariables.get('zone_id') || '').toString().trim();",
+                  "if (!requiredId) {",
+                  "  console.warn('[SKIP] Missing collection variable: zone_id. Run prerequisite creation step first.');",
+                  "  pm.execution.skipRequest();",
                   "}"
                 ]
               }
@@ -1408,6 +1470,12 @@
                   "const token = (pm.collectionVariables.get('user_token') || '').trim();",
                   "if (!token) {",
                   "  console.warn('[SKIP] Missing collection variable: user_token. Fill it before running this flow.');",
+                  "  pm.execution.skipRequest();",
+                  "}",
+                  "// QFLOW_ID_GUARD_complete_queue_number",
+                  "const requiredId = (pm.collectionVariables.get('complete_queue_number') || '').toString().trim();",
+                  "if (!requiredId) {",
+                  "  console.warn('[SKIP] Missing collection variable: complete_queue_number. Run prerequisite creation step first.');",
                   "  pm.execution.skipRequest();",
                   "}"
                 ]
@@ -1548,6 +1616,12 @@
                   "if (!token) {",
                   "  console.warn('[SKIP] Missing collection variable: provider_token. Fill it before running this flow.');",
                   "  pm.execution.skipRequest();",
+                  "}",
+                  "// QFLOW_ID_GUARD_zone_id",
+                  "const requiredId = (pm.collectionVariables.get('zone_id') || '').toString().trim();",
+                  "if (!requiredId) {",
+                  "  console.warn('[SKIP] Missing collection variable: zone_id. Run prerequisite creation step first.');",
+                  "  pm.execution.skipRequest();",
                   "}"
                 ]
               }
@@ -1619,6 +1693,12 @@
                   "if (!token) {",
                   "  console.warn('[SKIP] Missing collection variable: provider_token. Fill it before running this flow.');",
                   "  pm.execution.skipRequest();",
+                  "}",
+                  "// QFLOW_ID_GUARD_complete_queue_id",
+                  "const requiredId = (pm.collectionVariables.get('complete_queue_id') || '').toString().trim();",
+                  "if (!requiredId) {",
+                  "  console.warn('[SKIP] Missing collection variable: complete_queue_id. Run prerequisite creation step first.');",
+                  "  pm.execution.skipRequest();",
                   "}"
                 ]
               }
@@ -1689,6 +1769,12 @@
                   "const token = (pm.collectionVariables.get('provider_token') || '').trim();",
                   "if (!token) {",
                   "  console.warn('[SKIP] Missing collection variable: provider_token. Fill it before running this flow.');",
+                  "  pm.execution.skipRequest();",
+                  "}",
+                  "// QFLOW_ID_GUARD_complete_queue_id",
+                  "const requiredId = (pm.collectionVariables.get('complete_queue_id') || '').toString().trim();",
+                  "if (!requiredId) {",
+                  "  console.warn('[SKIP] Missing collection variable: complete_queue_id. Run prerequisite creation step first.');",
                   "  pm.execution.skipRequest();",
                   "}"
                 ]
@@ -1778,6 +1864,12 @@
                   "if (!token) {",
                   "  console.warn('[SKIP] Missing collection variable: user_token. Fill it before running this flow.');",
                   "  pm.execution.skipRequest();",
+                  "}",
+                  "// QFLOW_ID_GUARD_zone_id",
+                  "const requiredId = (pm.collectionVariables.get('zone_id') || '').toString().trim();",
+                  "if (!requiredId) {",
+                  "  console.warn('[SKIP] Missing collection variable: zone_id. Run prerequisite creation step first.');",
+                  "  pm.execution.skipRequest();",
                   "}"
                 ]
               }
@@ -1851,6 +1943,12 @@
                   "const token = (pm.collectionVariables.get('provider_token') || '').trim();",
                   "if (!token) {",
                   "  console.warn('[SKIP] Missing collection variable: provider_token. Fill it before running this flow.');",
+                  "  pm.execution.skipRequest();",
+                  "}",
+                  "// QFLOW_ID_GUARD_skip_queue_id",
+                  "const requiredId = (pm.collectionVariables.get('skip_queue_id') || '').toString().trim();",
+                  "if (!requiredId) {",
+                  "  console.warn('[SKIP] Missing collection variable: skip_queue_id. Run prerequisite creation step first.');",
                   "  pm.execution.skipRequest();",
                   "}"
                 ]
@@ -1940,6 +2038,12 @@
                   "if (!token) {",
                   "  console.warn('[SKIP] Missing collection variable: user_token. Fill it before running this flow.');",
                   "  pm.execution.skipRequest();",
+                  "}",
+                  "// QFLOW_ID_GUARD_zone_id",
+                  "const requiredId = (pm.collectionVariables.get('zone_id') || '').toString().trim();",
+                  "if (!requiredId) {",
+                  "  console.warn('[SKIP] Missing collection variable: zone_id. Run prerequisite creation step first.');",
+                  "  pm.execution.skipRequest();",
                   "}"
                 ]
               }
@@ -2012,6 +2116,12 @@
                   "const token = (pm.collectionVariables.get('user_token') || '').trim();",
                   "if (!token) {",
                   "  console.warn('[SKIP] Missing collection variable: user_token. Fill it before running this flow.');",
+                  "  pm.execution.skipRequest();",
+                  "}",
+                  "// QFLOW_ID_GUARD_cancel_queue_id",
+                  "const requiredId = (pm.collectionVariables.get('cancel_queue_id') || '').toString().trim();",
+                  "if (!requiredId) {",
+                  "  console.warn('[SKIP] Missing collection variable: cancel_queue_id. Run prerequisite creation step first.');",
                   "  pm.execution.skipRequest();",
                   "}"
                 ]
@@ -2241,6 +2351,12 @@
                   "if (!token) {",
                   "  console.warn('[SKIP] Missing collection variable: user_token. Fill it before running this flow.');",
                   "  pm.execution.skipRequest();",
+                  "}",
+                  "// QFLOW_ID_GUARD_notification_id",
+                  "const requiredId = (pm.collectionVariables.get('notification_id') || '').toString().trim();",
+                  "if (!requiredId) {",
+                  "  console.warn('[SKIP] Missing collection variable: notification_id. Run prerequisite creation step first.');",
+                  "  pm.execution.skipRequest();",
                   "}"
                 ]
               }
@@ -2309,6 +2425,12 @@
                   "const token = (pm.collectionVariables.get('user_token') || '').trim();",
                   "if (!token) {",
                   "  console.warn('[SKIP] Missing collection variable: user_token. Fill it before running this flow.');",
+                  "  pm.execution.skipRequest();",
+                  "}",
+                  "// QFLOW_ID_GUARD_notification_id",
+                  "const requiredId = (pm.collectionVariables.get('notification_id') || '').toString().trim();",
+                  "if (!requiredId) {",
+                  "  console.warn('[SKIP] Missing collection variable: notification_id. Run prerequisite creation step first.');",
                   "  pm.execution.skipRequest();",
                   "}"
                 ]
@@ -2385,6 +2507,12 @@
                   "if (!token) {",
                   "  console.warn('[SKIP] Missing collection variable: provider_token. Fill it before running this flow.');",
                   "  pm.execution.skipRequest();",
+                  "}",
+                  "// QFLOW_ID_GUARD_zone_id",
+                  "const requiredId = (pm.collectionVariables.get('zone_id') || '').toString().trim();",
+                  "if (!requiredId) {",
+                  "  console.warn('[SKIP] Missing collection variable: zone_id. Run prerequisite creation step first.');",
+                  "  pm.execution.skipRequest();",
                   "}"
                 ]
               }
@@ -2448,6 +2576,12 @@
                   "const token = (pm.collectionVariables.get('admin_token') || '').trim();",
                   "if (!token) {",
                   "  console.warn('[SKIP] Missing collection variable: admin_token. Fill it before running this flow.');",
+                  "  pm.execution.skipRequest();",
+                  "}",
+                  "// QFLOW_ID_GUARD_delete_category_id",
+                  "const requiredId = (pm.collectionVariables.get('delete_category_id') || '').toString().trim();",
+                  "if (!requiredId) {",
+                  "  console.warn('[SKIP] Missing collection variable: delete_category_id. Run prerequisite creation step first.');",
                   "  pm.execution.skipRequest();",
                   "}"
                 ]
@@ -2540,57 +2674,57 @@
     },
     {
       "key": "category_id",
-      "value": "1",
+      "value": "",
       "type": "string"
     },
     {
       "key": "delete_category_id",
-      "value": "1",
+      "value": "",
       "type": "string"
     },
     {
       "key": "provider_id",
-      "value": "1",
+      "value": "",
       "type": "string"
     },
     {
       "key": "zone_id",
-      "value": "1",
+      "value": "",
       "type": "string"
     },
     {
       "key": "complete_queue_id",
-      "value": "1",
+      "value": "",
       "type": "string"
     },
     {
       "key": "complete_queue_number",
-      "value": "1",
+      "value": "",
       "type": "string"
     },
     {
       "key": "skip_queue_id",
-      "value": "1",
+      "value": "",
       "type": "string"
     },
     {
       "key": "skip_queue_number",
-      "value": "1",
+      "value": "",
       "type": "string"
     },
     {
       "key": "cancel_queue_id",
-      "value": "1",
+      "value": "",
       "type": "string"
     },
     {
       "key": "cancel_queue_number",
-      "value": "1",
+      "value": "",
       "type": "string"
     },
     {
       "key": "notification_id",
-      "value": "1",
+      "value": "",
       "type": "string"
     }
   ]
