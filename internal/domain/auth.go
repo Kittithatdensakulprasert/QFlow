@@ -26,6 +26,7 @@ type AuthRepository interface {
 	CreateOTP(phone string) (*OTP, error)
 	FindValidOTP(phone, code string) (*OTP, error)
 	MarkOTPAsUsed(otpID uint) error
+	DeleteExpiredOTPs(now time.Time) (int64, error)
 	FindUserByPhone(phone string) (*User, error)
 	CreateUser(user *User) error
 	UpdateUser(user *User) error

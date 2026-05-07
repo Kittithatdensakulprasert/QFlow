@@ -63,6 +63,14 @@ func (r *authRepository) MarkOTPAsUsed(otpID uint) error {
 	return nil
 }
 
+func (r *authRepository) DeleteExpiredOTPs(now time.Time) (int64, error) {
+	result := r.db.Where("expires_at <= ?", now).Delete(&domain.OTP{})
+	if result.Error != nil {
+		return 0, result.Error
+	}
+	return result.RowsAffected, nil
+}
+
 func (r *authRepository) FindUserByPhone(phone string) (*domain.User, error) {
 	var user domain.User
 	err := r.db.Where("phone = ?", phone).First(&user).Error

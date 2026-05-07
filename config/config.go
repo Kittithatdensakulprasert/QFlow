@@ -1,8 +1,10 @@
 package config
 
 import (
+	"log"
 	"os"
 	"strings"
+	"time"
 )
 
 type Config struct {
@@ -10,6 +12,7 @@ type Config struct {
 	DSN                    string
 	JWTSecret              string
 	AppEnv                 string
+	OTPCleanupInterval     string
 	BootstrapAdminPhone    string
 	BootstrapAdminName     string
 	BootstrapProviderPhone string
@@ -22,6 +25,7 @@ func Load() *Config {
 		DSN:                    getEnv("DATABASE_URL", ""),
 		JWTSecret:              getEnv("JWT_SECRET", ""),
 		AppEnv:                 getEnv("APP_ENV", "production"),
+		OTPCleanupInterval:     getEnv("OTP_CLEANUP_INTERVAL", "1h"),
 		BootstrapAdminPhone:    getEnv("BOOTSTRAP_ADMIN_PHONE", ""),
 		BootstrapAdminName:     getEnv("BOOTSTRAP_ADMIN_NAME", "Bootstrap Admin"),
 		BootstrapProviderPhone: getEnv("BOOTSTRAP_PROVIDER_PHONE", ""),
@@ -32,6 +36,15 @@ func Load() *Config {
 func (c *Config) ExposeOTPInResponse() bool {
 	env := strings.ToLower(c.AppEnv)
 	return env == "dev" || env == "development" || env == "test"
+}
+
+func (c *Config) ParsedOTPCleanupInterval() time.Duration {
+	interval, err := time.ParseDuration(c.OTPCleanupInterval)
+	if err != nil {
+		log.Printf("invalid OTP_CLEANUP_INTERVAL %q, using 1h: %v", c.OTPCleanupInterval, err)
+		return time.Hour
+	}
+	return interval
 }
 
 func getEnv(key, fallback string) string {
