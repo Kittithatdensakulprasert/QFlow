@@ -45,6 +45,12 @@ jobs:
       - name: Unit tests
         run: go test ./... -covermode=atomic -coverprofile=coverage.out
 
+      - name: Check coverage threshold (80%)
+        run: |
+          COVERAGE=$(go tool cover -func=coverage.out | grep total | awk '{print $3}' | tr -d '%')
+          echo "Coverage: $COVERAGE%"
+          awk "BEGIN{exit ($COVERAGE < 80)}"
+
       - name: Upload coverage artifact
         uses: actions/upload-artifact@v4
         with:
@@ -66,7 +72,7 @@ jobs:
           cache: true
 
       - name: Run gosec (fail on medium+)
-        uses: securego/gosec@master
+        uses: securego/gosec@v2.22.4
         with:
           args: "-severity medium -confidence medium -fmt sarif -out gosec.sarif ./..."
 
@@ -143,15 +149,12 @@ jobs:
 
       - name: Get admin token via DB OTP
         run: |
-          # Request OTP
           curl -sf -X POST http://localhost:3000/api/auth/request-otp \
             -H "Content-Type: application/json" \
             -d '{"phone":"0800000001"}' > /dev/null
-          # Read OTP from DB
           ADMIN_OTP=$(PGPASSWORD=postgres psql -h localhost -U postgres -d qflow -t -c \
             "SELECT code FROM otps WHERE phone='0800000001' AND used=false ORDER BY created_at DESC LIMIT 1;" | tr -d ' ')
           echo "Admin OTP: $ADMIN_OTP"
-          # Verify OTP → get token
           ADMIN_TOKEN=$(curl -sf -X POST http://localhost:3000/api/auth/verify-otp \
             -H "Content-Type: application/json" \
             -d "{\"phone\":\"0800000001\",\"code\":\"$ADMIN_OTP\"}" | python3 -c "import sys,json; print(json.load(sys.stdin)['token'])")
@@ -207,3 +210,45 @@ jobs:
         with:
           name: newman-report
           path: newman-report.xml
+
+  docker:
+    name: Build and Push Docker Image
+    runs-on: ubuntu-latest
+    needs: [test-and-quality, integration-test]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Log in to DockerHub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/qflow:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/qflow:1.0.0
+
+  deploy:
+    name: Deploy to Render
+    runs-on: ubuntu-latest
+    needs: docker
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - name: Trigger Render deploy
+        run: |
+          curl -s -o /dev/null -w "%{http_code}" \
+            "${{ secrets.RENDER_DEPLOY_HOOK }}" \
+          | grep -q "^2" && echo "Deploy triggered" || (echo "Deploy failed" && exit 1)
