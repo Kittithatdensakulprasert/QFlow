@@ -47,7 +47,7 @@ func (h *QueueHandler) BookQueue(c *gin.Context) {
 		case errors.Is(err, service.ErrZoneClosed):
 			c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
 		default:
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		}
 		return
 	}
@@ -74,7 +74,7 @@ func (h *QueueHandler) GetHistory(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 	c.JSON(http.StatusOK, queues)
@@ -103,7 +103,7 @@ func (h *QueueHandler) GetQueue(c *gin.Context) {
 		case errors.Is(err, service.ErrForbiddenQueue):
 			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
 		default:
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		}
 		return
 	}
@@ -137,7 +137,7 @@ func (h *QueueHandler) CancelQueue(c *gin.Context) {
 			errors.Is(err, service.ErrQueueCancelled):
 			c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
 		default:
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		}
 		return
 	}
@@ -156,7 +156,7 @@ func (h *QueueHandler) GetQueuesByZone(c *gin.Context) {
 
 	queues, err := h.svc.GetQueuesByZone(uint(zoneID))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
 
@@ -179,7 +179,7 @@ func (h *QueueHandler) CallQueue(c *gin.Context) {
 		case errors.Is(err, domain.ErrQueueCannotBeCalled):
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		default:
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		}
 		return
 	}
@@ -203,7 +203,7 @@ func (h *QueueHandler) CompleteQueue(c *gin.Context) {
 		case errors.Is(err, domain.ErrQueueCannotBeCompleted):
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		default:
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		}
 		return
 	}
@@ -227,7 +227,7 @@ func (h *QueueHandler) SkipQueue(c *gin.Context) {
 		case errors.Is(err, domain.ErrQueueCannotBeSkipped):
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		default:
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		}
 		return
 	}

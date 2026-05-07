@@ -17,10 +17,15 @@ import (
 
 func main() {
 	cfg := config.Load()
-	if cfg.JWTSecret == "" ||
-		cfg.JWTSecret == "secret" ||
-		cfg.JWTSecret == "your-secret-key-here" ||
-		cfg.JWTSecret == "change-me-to-a-long-random-jwt-secret-for-local-dev" {
+	blocklist := []string{"", "secret", "your-secret-key-here", "change-me-to-a-long-random-jwt-secret-for-local-dev"} //nolint:gosec // G101: blocklist of weak values, not actual credentials
+	isWeak := false
+	for _, v := range blocklist {
+		if cfg.JWTSecret == v {
+			isWeak = true
+			break
+		}
+	}
+	if isWeak {
 		log.Fatal("JWT_SECRET must be set to a strong non-default value")
 	}
 

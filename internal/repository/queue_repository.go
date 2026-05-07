@@ -24,7 +24,7 @@ func (r *queueRepository) FindZoneByID(id uint) (*domain.Zone, error) {
 
 func (r *queueRepository) CreateWithNextQueueNumber(queue *domain.Queue) error {
 	return r.db.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Exec("SELECT pg_advisory_xact_lock(?)", int64(1001)).Error; err != nil {
+		if err := tx.Exec("SELECT pg_advisory_xact_lock(?)", int64(1001)).Error; err != nil { //nolint:gosec // G201: hardcoded lock key, not user input
 			return err
 		}
 
