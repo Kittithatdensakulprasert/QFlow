@@ -14,10 +14,10 @@ type rateLimitEntry struct {
 }
 
 type RateLimiter struct {
-	mu       sync.Mutex
-	store    map[string]*rateLimitEntry
-	limit    int
-	window   time.Duration
+	mu     sync.Mutex
+	store  map[string]*rateLimitEntry
+	limit  int
+	window time.Duration
 }
 
 func NewRateLimiter(limit int, window time.Duration) *RateLimiter {
