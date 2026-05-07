@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"log"
 
 	"qflow/config"
@@ -44,6 +45,8 @@ func main() {
 
 	jwtManager := jwt.NewJWTManager(cfg.JWTSecret)
 	authSvc := service.NewAuthService(authRepo, jwtManager)
+	otpCleanupJob := service.NewOTPCleanupJob(authRepo, cfg.ParsedOTPCleanupInterval(), nil)
+	otpCleanupJob.Start(context.Background())
 
 	r := gin.Default()
 	router.Setup(r, providerSvc, queueSvc, notificationSvc, authSvc, jwtManager, cfg.ExposeOTPInResponse())
