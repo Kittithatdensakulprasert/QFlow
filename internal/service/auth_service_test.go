@@ -62,6 +62,14 @@ func (m *mockAuthRepository) MarkOTPAsUsed(otpID uint) error {
 	return errors.New("OTP has already been used or does not exist")
 }
 
+func (m *mockAuthRepository) DeleteExpiredOTPs(now time.Time) (int64, error) {
+	if m.otp != nil && !m.otp.ExpiresAt.After(now) {
+		m.otp = nil
+		return 1, nil
+	}
+	return 0, nil
+}
+
 func (m *mockAuthRepository) FindUserByPhone(phone string) (*domain.User, error) {
 	if user, exists := m.users[phone]; exists {
 		return user, nil

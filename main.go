@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"log"
 
 	"qflow/config"
@@ -38,15 +39,19 @@ func main() {
 	queueSvc := service.NewQueueService(queueRepo)
 	notificationRepo := repository.NewNotificationRepository(database)
 	notificationSvc := service.NewNotificationService(notificationRepo)
+	categoryRepo := repository.NewCategoryGormRepository(database)
+	categorySvc := service.NewCategoryService(categoryRepo)
 	authRepo := repository.NewAuthRepository(database)
 	seedBootstrapUser(authRepo, cfg.BootstrapAdminPhone, cfg.BootstrapAdminName, "admin")
 	seedBootstrapUser(authRepo, cfg.BootstrapProviderPhone, cfg.BootstrapProviderName, "provider")
 
 	jwtManager := jwt.NewJWTManager(cfg.JWTSecret)
 	authSvc := service.NewAuthService(authRepo, jwtManager)
+	otpCleanupJob := service.NewOTPCleanupJob(authRepo, cfg.ParsedOTPCleanupInterval(), nil)
+	otpCleanupJob.Start(context.Background())
 
 	r := gin.Default()
-	router.Setup(r, providerSvc, queueSvc, notificationSvc, authSvc, jwtManager, cfg.ExposeOTPInResponse())
+	router.Setup(r, providerSvc, queueSvc, notificationSvc, authSvc, categorySvc, jwtManager, cfg.ExposeOTPInResponse())
 	swagger.Register(r)
 
 	if err := r.Run(":" + cfg.Port); err != nil {

@@ -15,20 +15,21 @@ func Setup(
 	queueSvc domain.QueueService,
 	notificationSvc domain.NotificationService,
 	authSvc domain.AuthService,
+	categorySvc domain.CategoryService,
 	jwtManager *jwt.JWTManager,
 	exposeOTPResponse bool,
 ) {
 	auth := handler.NewAuthHandler(authSvc, exposeOTPResponse)
-	category := handler.NewCategoryHandler()
+	category := handler.NewCategoryHandler(categorySvc)
 	provider := handler.NewProviderHandler(providerSvc)
 	queue := handler.NewQueueHandler(queueSvc)
 	notification := handler.NewNotificationHandler(notificationSvc)
 
 	api := r.Group("/api")
 
-	// Public Auth routes
-	api.POST("/auth/request-otp", auth.RequestOTP)
-	api.POST("/auth/verify-otp", auth.VerifyOTP)
+	// Public Auth routes (rate limited)
+	api.POST("/auth/request-otp", middleware.OTPRequestLimiter.Middleware(), auth.RequestOTP)
+	api.POST("/auth/verify-otp", middleware.OTPVerifyLimiter.Middleware(), auth.VerifyOTP)
 	api.POST("/auth/register", auth.Register)
 
 	// Protected routes

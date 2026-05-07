@@ -27,13 +27,13 @@ func (h *QueueHandler) BookQueue(c *gin.Context) {
 		ZoneID uint `json:"zone_id" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		respondError(c, http.StatusBadRequest, "INVALID_REQUEST", err.Error())
 		return
 	}
 
-	userID, ok := resolveRequiredUserID(c)
+	userID, ok := resolveContextUserID(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		respondError(c, http.StatusUnauthorized, "UNAUTHORIZED", "authentication required")
 		return
 	}
 	queue, err := h.svc.BookQueue(userID, body.ZoneID)
@@ -41,13 +41,13 @@ func (h *QueueHandler) BookQueue(c *gin.Context) {
 		switch {
 		case errors.Is(err, service.ErrInvalidUserID),
 			errors.Is(err, service.ErrInvalidZoneID):
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			respondError(c, http.StatusBadRequest, "INVALID_INPUT", err.Error())
 		case errors.Is(err, service.ErrZoneNotFound):
-			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			respondError(c, http.StatusNotFound, "ZONE_NOT_FOUND", err.Error())
 		case errors.Is(err, service.ErrZoneClosed):
-			c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+			respondError(c, http.StatusConflict, "ZONE_CLOSED", err.Error())
 		default:
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+			respondError(c, http.StatusInternalServerError, "INTERNAL_SERVER_ERROR", "internal server error")
 		}
 		return
 	}
@@ -63,18 +63,18 @@ func (h *QueueHandler) BookQueue(c *gin.Context) {
 
 // GET /api/queues/history
 func (h *QueueHandler) GetHistory(c *gin.Context) {
-	userID, ok := resolveRequiredUserID(c)
+	userID, ok := resolveContextUserID(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		respondError(c, http.StatusUnauthorized, "UNAUTHORIZED", "authentication required")
 		return
 	}
 	queues, err := h.svc.GetQueueHistory(userID)
 	if err != nil {
 		if errors.Is(err, service.ErrInvalidUserID) {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			respondError(c, http.StatusBadRequest, "INVALID_INPUT", err.Error())
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		respondError(c, http.StatusInternalServerError, "INTERNAL_SERVER_ERROR", "internal server error")
 		return
 	}
 	c.JSON(http.StatusOK, queues)
@@ -84,26 +84,26 @@ func (h *QueueHandler) GetHistory(c *gin.Context) {
 func (h *QueueHandler) GetQueue(c *gin.Context) {
 	queueNumber, err := strconv.Atoi(c.Param("queueNumber"))
 	if err != nil || queueNumber <= 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid queue number"})
+		respondError(c, http.StatusBadRequest, "INVALID_QUEUE_NUMBER", "invalid queue number")
 		return
 	}
 
-	userID, ok := resolveRequiredUserID(c)
+	userID, ok := resolveContextUserID(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		respondError(c, http.StatusUnauthorized, "UNAUTHORIZED", "authentication required")
 		return
 	}
 	queue, err := h.svc.GetQueueByNumber(queueNumber, userID)
 	if err != nil {
 		switch {
 		case errors.Is(err, service.ErrInvalidUserID):
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			respondError(c, http.StatusBadRequest, "INVALID_INPUT", err.Error())
 		case errors.Is(err, service.ErrQueueNotFound):
-			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			respondError(c, http.StatusNotFound, "QUEUE_NOT_FOUND", err.Error())
 		case errors.Is(err, service.ErrForbiddenQueue):
-			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+			respondError(c, http.StatusForbidden, "FORBIDDEN", err.Error())
 		default:
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+			respondError(c, http.StatusInternalServerError, "INTERNAL_SERVER_ERROR", "internal server error")
 		}
 		return
 	}
@@ -115,29 +115,29 @@ func (h *QueueHandler) GetQueue(c *gin.Context) {
 func (h *QueueHandler) CancelQueue(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil || id <= 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		respondError(c, http.StatusBadRequest, "INVALID_ID", "invalid id")
 		return
 	}
 
-	userID, ok := resolveRequiredUserID(c)
+	userID, ok := resolveContextUserID(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		respondError(c, http.StatusUnauthorized, "UNAUTHORIZED", "authentication required")
 		return
 	}
 	err = h.svc.CancelQueue(uint(id), userID)
 	if err != nil {
 		switch {
 		case errors.Is(err, service.ErrInvalidUserID):
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			respondError(c, http.StatusBadRequest, "INVALID_INPUT", err.Error())
 		case errors.Is(err, service.ErrQueueNotFound):
-			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			respondError(c, http.StatusNotFound, "QUEUE_NOT_FOUND", err.Error())
 		case errors.Is(err, service.ErrForbiddenQueue):
-			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+			respondError(c, http.StatusForbidden, "FORBIDDEN", err.Error())
 		case errors.Is(err, service.ErrQueueFinalized),
 			errors.Is(err, service.ErrQueueCancelled):
-			c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+			respondError(c, http.StatusConflict, "QUEUE_ALREADY_FINALIZED", err.Error())
 		default:
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+			respondError(c, http.StatusInternalServerError, "INTERNAL_SERVER_ERROR", "internal server error")
 		}
 		return
 	}
@@ -150,13 +150,13 @@ func (h *QueueHandler) CancelQueue(c *gin.Context) {
 func (h *QueueHandler) GetQueuesByZone(c *gin.Context) {
 	zoneID, err := strconv.ParseUint(c.Param("zoneId"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid zone id"})
+		respondError(c, http.StatusBadRequest, "INVALID_ZONE_ID", "invalid zone id")
 		return
 	}
 
 	queues, err := h.svc.GetQueuesByZone(uint(zoneID))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+		respondError(c, http.StatusInternalServerError, "INTERNAL_SERVER_ERROR", "internal server error")
 		return
 	}
 
@@ -167,7 +167,7 @@ func (h *QueueHandler) GetQueuesByZone(c *gin.Context) {
 func (h *QueueHandler) CallQueue(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		respondError(c, http.StatusBadRequest, "INVALID_ID", "invalid id")
 		return
 	}
 
@@ -175,11 +175,11 @@ func (h *QueueHandler) CallQueue(c *gin.Context) {
 	if err != nil {
 		switch {
 		case errors.Is(err, service.ErrQueueNotFound):
-			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			respondError(c, http.StatusNotFound, "QUEUE_NOT_FOUND", err.Error())
 		case errors.Is(err, domain.ErrQueueCannotBeCalled):
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			respondError(c, http.StatusConflict, "QUEUE_INVALID_STATE", err.Error())
 		default:
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+			respondError(c, http.StatusInternalServerError, "INTERNAL_SERVER_ERROR", "internal server error")
 		}
 		return
 	}
@@ -191,7 +191,7 @@ func (h *QueueHandler) CallQueue(c *gin.Context) {
 func (h *QueueHandler) CompleteQueue(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		respondError(c, http.StatusBadRequest, "INVALID_ID", "invalid id")
 		return
 	}
 
@@ -199,11 +199,11 @@ func (h *QueueHandler) CompleteQueue(c *gin.Context) {
 	if err != nil {
 		switch {
 		case errors.Is(err, service.ErrQueueNotFound):
-			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			respondError(c, http.StatusNotFound, "QUEUE_NOT_FOUND", err.Error())
 		case errors.Is(err, domain.ErrQueueCannotBeCompleted):
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			respondError(c, http.StatusConflict, "QUEUE_INVALID_STATE", err.Error())
 		default:
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+			respondError(c, http.StatusInternalServerError, "INTERNAL_SERVER_ERROR", "internal server error")
 		}
 		return
 	}
@@ -215,7 +215,7 @@ func (h *QueueHandler) CompleteQueue(c *gin.Context) {
 func (h *QueueHandler) SkipQueue(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		respondError(c, http.StatusBadRequest, "INVALID_ID", "invalid id")
 		return
 	}
 
@@ -223,37 +223,14 @@ func (h *QueueHandler) SkipQueue(c *gin.Context) {
 	if err != nil {
 		switch {
 		case errors.Is(err, service.ErrQueueNotFound):
-			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			respondError(c, http.StatusNotFound, "QUEUE_NOT_FOUND", err.Error())
 		case errors.Is(err, domain.ErrQueueCannotBeSkipped):
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			respondError(c, http.StatusConflict, "QUEUE_INVALID_STATE", err.Error())
 		default:
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
+			respondError(c, http.StatusInternalServerError, "INTERNAL_SERVER_ERROR", "internal server error")
 		}
 		return
 	}
 
 	c.JSON(http.StatusOK, queue)
-}
-
-func resolveRequiredUserID(c *gin.Context) (uint, bool) {
-	if userIDVal, exists := c.Get("user_id"); exists {
-		switch v := userIDVal.(type) {
-		case uint:
-			return v, v > 0
-		case int:
-			if v > 0 {
-				return uint(v), true
-			}
-		case float64:
-			if v > 0 {
-				return uint(v), true
-			}
-		case string:
-			userID, err := strconv.ParseUint(v, 10, 64)
-			if err == nil && userID > 0 {
-				return uint(userID), true
-			}
-		}
-	}
-	return 0, false
 }
