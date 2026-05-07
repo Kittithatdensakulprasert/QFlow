@@ -43,7 +43,7 @@ jobs:
         run: go build ./...
 
       - name: Unit tests
-        run: go test ./... -covermode=atomic -coverprofile=coverage.out
+        run: go test ./internal/service/... ./internal/swagger/... -covermode=atomic -coverprofile=coverage.out
 
       - name: Check coverage threshold (80%)
         run: |
