@@ -208,8 +208,15 @@ func setupAuthTestRouter() (*gin.Engine, *mockAuthService) {
 	api.POST("/auth/request-otp", auth.RequestOTP)
 	api.POST("/auth/verify-otp", auth.VerifyOTP)
 	api.POST("/auth/register", auth.Register)
-	api.GET("/auth/me", auth.GetProfile)
-	api.PUT("/auth/me", auth.UpdateProfile)
+
+	// Protected routes require user_id in context (simulates JWT middleware)
+	protected := api.Group("/")
+	protected.Use(func(c *gin.Context) {
+		c.Set("user_id", uint(1))
+		c.Next()
+	})
+	protected.GET("/auth/me", auth.GetProfile)
+	protected.PUT("/auth/me", auth.UpdateProfile)
 
 	return router, svc
 }

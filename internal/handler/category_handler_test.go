@@ -382,7 +382,8 @@ func TestCategoryHandlerReturnsInternalServerError(t *testing.T) {
 }
 
 func TestNewCategoryHandler(t *testing.T) {
-	h := NewCategoryHandler()
+	svc := &mockCategoryService{}
+	h := NewCategoryHandler(svc)
 	if h == nil {
 		t.Fatal("expected handler to be non-nil")
 	}
@@ -393,7 +394,7 @@ func setupCategoryTestRouter() (*gin.Engine, *mockCategoryService) {
 
 	router := gin.New()
 	svc := &mockCategoryService{}
-	category := NewCategoryHandlerWithService(svc)
+	category := NewCategoryHandler(svc)
 	api := router.Group("/api")
 	api.GET("/categories", category.GetCategories)
 	api.GET("/categories/:id", category.GetCategory)

@@ -15,11 +15,12 @@ func Setup(
 	queueSvc domain.QueueService,
 	notificationSvc domain.NotificationService,
 	authSvc domain.AuthService,
+	categorySvc domain.CategoryService,
 	jwtManager *jwt.JWTManager,
 	exposeOTPResponse bool,
 ) {
 	auth := handler.NewAuthHandler(authSvc, exposeOTPResponse)
-	category := handler.NewCategoryHandler()
+	category := handler.NewCategoryHandler(categorySvc)
 	provider := handler.NewProviderHandler(providerSvc)
 	queue := handler.NewQueueHandler(queueSvc)
 	notification := handler.NewNotificationHandler(notificationSvc)

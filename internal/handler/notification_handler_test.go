@@ -321,7 +321,8 @@ func TestResolveNotificationUserID(t *testing.T) {
 		{name: "int zero", value: 0, ok: false},
 		{name: "float64 positive", value: float64(11), ok: true, userID: 11},
 		{name: "float64 zero", value: float64(0), ok: false},
-		{name: "unsupported type", value: "7", ok: false},
+		{name: "string numeric", value: "7", ok: true, userID: 7},
+		{name: "unsupported type", value: struct{}{}, ok: false},
 	}
 
 	for _, tt := range tests {
@@ -330,7 +331,7 @@ func TestResolveNotificationUserID(t *testing.T) {
 			c, _ := gin.CreateTestContext(w)
 			c.Set("user_id", tt.value)
 
-			got, ok := resolveNotificationUserID(c)
+			got, ok := resolveContextUserID(c)
 			if ok != tt.ok {
 				t.Fatalf("expected ok=%v, got %v", tt.ok, ok)
 			}

@@ -3,11 +3,8 @@ package handler
 import (
 	"errors"
 	"net/http"
-	"qflow/db"
 	"qflow/internal/domain"
-	"qflow/internal/repository"
 	"qflow/internal/service"
-	"strconv"
 
 	"github.com/gin-gonic/gin"
 )
@@ -16,16 +13,7 @@ type CategoryHandler struct {
 	service domain.CategoryService
 }
 
-func NewCategoryHandler() *CategoryHandler {
-	repo := repository.NewCategoryGormRepository(db.DB)
-	categoryService := service.NewCategoryService(repo)
-
-	return &CategoryHandler{
-		service: categoryService,
-	}
-}
-
-func NewCategoryHandlerWithService(svc domain.CategoryService) *CategoryHandler {
+func NewCategoryHandler(svc domain.CategoryService) *CategoryHandler {
 	return &CategoryHandler{service: svc}
 }
 
@@ -150,23 +138,3 @@ func (h *CategoryHandler) DeleteCategory(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
-func parseID(idParam string) (uint, error) {
-	id, err := strconv.ParseUint(idParam, 10, 64)
-	if err != nil {
-		return 0, err
-	}
-	if id == 0 {
-		return 0, errors.New("id must be greater than zero")
-	}
-
-	return uint(id), nil
-}
-
-func respondError(c *gin.Context, status int, errorCode string, message string) {
-	c.JSON(status, gin.H{
-		"status":  status,
-		"error":   errorCode,
-		"message": message,
-		"path":    c.Request.URL.Path,
-	})
-}
