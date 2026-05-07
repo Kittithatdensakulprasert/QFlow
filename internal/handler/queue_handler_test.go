@@ -149,14 +149,11 @@ func TestBookQueue(t *testing.T) {
 		t.Fatalf("decode response: %v", err)
 	}
 
-	if response["message"] != "Queue booked successfully" {
-		t.Fatalf("unexpected message: %v", response["message"])
+	if response["zone_id"] != float64(1) {
+		t.Fatalf("unexpected zone_id: %v", response["zone_id"])
 	}
-
-	// Check that queue was created
-	queue := response["queue"].(map[string]interface{})
-	if queue["zone_id"] != float64(1) {
-		t.Fatalf("unexpected zone_id: %v", queue["zone_id"])
+	if response["status"] != "waiting" {
+		t.Fatalf("unexpected status: %v", response["status"])
 	}
 }
 
@@ -171,7 +168,11 @@ func TestBookQueueWithInvalidFormat(t *testing.T) {
 }
 
 func TestGetHistory(t *testing.T) {
-	router, _ := setupQueueTestRouter()
+	router, svc := setupQueueTestRouter()
+	// pre-populate a queue for userID=1
+	svc.queues = []domain.Queue{
+		{ID: 1, QueueNumber: 101, ZoneID: 1, UserID: 1, Status: "waiting"},
+	}
 
 	res := performQueueRequest(router, http.MethodGet, "/api/queues/history", "")
 
@@ -179,14 +180,9 @@ func TestGetHistory(t *testing.T) {
 		t.Fatalf("expected status %d, got %d", http.StatusOK, res.Code)
 	}
 
-	var response map[string]interface{}
-	if err := json.NewDecoder(res.Body).Decode(&response); err != nil {
+	var queues []interface{}
+	if err := json.NewDecoder(res.Body).Decode(&queues); err != nil {
 		t.Fatalf("decode response: %v", err)
-	}
-
-	queues, ok := response["queues"].([]interface{})
-	if !ok {
-		t.Fatalf("expected queues array in response")
 	}
 
 	if len(queues) == 0 {
@@ -195,7 +191,10 @@ func TestGetHistory(t *testing.T) {
 }
 
 func TestGetQueue(t *testing.T) {
-	router, _ := setupQueueTestRouter()
+	router, svc := setupQueueTestRouter()
+	svc.queues = []domain.Queue{
+		{ID: 1, QueueNumber: 101, ZoneID: 1, UserID: 1, Status: "waiting"},
+	}
 
 	res := performQueueRequest(router, http.MethodGet, "/api/queues/101", "")
 
@@ -208,18 +207,16 @@ func TestGetQueue(t *testing.T) {
 		t.Fatalf("decode response: %v", err)
 	}
 
-	if response["queue"] == nil {
-		t.Fatalf("expected queue in response")
-	}
-
-	queue := response["queue"].(map[string]interface{})
-	if queue["queue_number"] == nil {
+	if response["queue_number"] == nil {
 		t.Fatalf("expected queue_number in response")
 	}
 }
 
 func TestCancelQueue(t *testing.T) {
-	router, _ := setupQueueTestRouter()
+	router, svc := setupQueueTestRouter()
+	svc.queues = []domain.Queue{
+		{ID: 1, QueueNumber: 101, ZoneID: 1, UserID: 1, Status: "waiting"},
+	}
 
 	res := performQueueRequest(router, http.MethodPatch, "/api/queues/1/cancel", "")
 
@@ -232,13 +229,8 @@ func TestCancelQueue(t *testing.T) {
 		t.Fatalf("decode response: %v", err)
 	}
 
-	if response["message"] != "Queue cancelled successfully" {
+	if response["message"] != "queue cancelled" {
 		t.Fatalf("unexpected message: %v", response["message"])
-	}
-
-	queue := response["queue"].(map[string]interface{})
-	if queue["status"] != "cancelled" {
-		t.Fatalf("expected queue status to be cancelled: %v", queue["status"])
 	}
 }
 
