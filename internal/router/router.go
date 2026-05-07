@@ -26,9 +26,9 @@ func Setup(
 
 	api := r.Group("/api")
 
-	// Public Auth routes
-	api.POST("/auth/request-otp", auth.RequestOTP)
-	api.POST("/auth/verify-otp", auth.VerifyOTP)
+	// Public Auth routes (rate limited)
+	api.POST("/auth/request-otp", middleware.OTPRequestLimiter.Middleware(), auth.RequestOTP)
+	api.POST("/auth/verify-otp", middleware.OTPVerifyLimiter.Middleware(), auth.VerifyOTP)
 	api.POST("/auth/register", auth.Register)
 
 	// Protected routes
