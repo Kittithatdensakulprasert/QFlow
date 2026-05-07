@@ -25,6 +25,10 @@ func NewCategoryHandler() *CategoryHandler {
 	}
 }
 
+func NewCategoryHandlerWithService(svc domain.CategoryService) *CategoryHandler {
+	return &CategoryHandler{service: svc}
+}
+
 type categoryRequest struct {
 	Name string `json:"name"`
 }
@@ -150,6 +154,9 @@ func parseID(idParam string) (uint, error) {
 	id, err := strconv.ParseUint(idParam, 10, 64)
 	if err != nil {
 		return 0, err
+	}
+	if id == 0 {
+		return 0, errors.New("id must be greater than zero")
 	}
 
 	return uint(id), nil
