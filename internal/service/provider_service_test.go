@@ -17,6 +17,8 @@ type mockProviderRepo struct {
 	nextPID    uint
 	nextZID    uint
 	repoErr    error
+	countCalls int
+	batchCalls int
 }
 
 func newMockProviderRepo() *mockProviderRepo {
@@ -118,6 +120,7 @@ func (m *mockProviderRepo) CountQueuesByZoneID(zoneID uint) (int, error) {
 	if m.repoErr != nil {
 		return 0, m.repoErr
 	}
+	m.countCalls++
 	count := 0
 	for _, queue := range m.queues {
 		if queue.ZoneID == zoneID {
@@ -125,6 +128,23 @@ func (m *mockProviderRepo) CountQueuesByZoneID(zoneID uint) (int, error) {
 		}
 	}
 	return count, nil
+}
+
+func (m *mockProviderRepo) CountQueuesByZoneIDs(zoneIDs []uint) (map[uint]int, error) {
+	if m.repoErr != nil {
+		return nil, m.repoErr
+	}
+	m.batchCalls++
+	counts := make(map[uint]int, len(zoneIDs))
+	for _, zoneID := range zoneIDs {
+		counts[zoneID] = 0
+	}
+	for _, queue := range m.queues {
+		if _, ok := counts[queue.ZoneID]; ok {
+			counts[queue.ZoneID]++
+		}
+	}
+	return counts, nil
 }
 
 func TestProviderServiceCreateProvider(t *testing.T) {
@@ -191,6 +211,45 @@ func TestProviderServiceGetZonesCountsQueues(t *testing.T) {
 	}
 	if zones[0].QueueCount != 2 {
 		t.Fatalf("expected queue count 2, got %d", zones[0].QueueCount)
+	}
+	if repo.batchCalls != 1 {
+		t.Fatalf("expected batch count lookup once, got %d", repo.batchCalls)
+	}
+	if repo.countCalls != 1 {
+		t.Fatalf("expected single-zone count only from CreateZone, got %d", repo.countCalls)
+	}
+}
+
+func TestProviderServiceGetZonesCountsQueuesInOneBatch(t *testing.T) {
+	repo := newMockProviderRepo()
+	svc := service.NewProviderService(repo)
+	provider, _ := svc.CreateProvider("Bangkok Clinic", 0)
+	zoneA, _ := svc.CreateZone(provider.ID, "Counter A")
+	zoneB, _ := svc.CreateZone(provider.ID, "Counter B")
+	repo.queues = append(repo.queues,
+		domain.Queue{ID: 1, ZoneID: zoneA.ID},
+		domain.Queue{ID: 2, ZoneID: zoneA.ID},
+		domain.Queue{ID: 3, ZoneID: zoneB.ID},
+		domain.Queue{ID: 4, ZoneID: 999},
+	)
+
+	zones, err := svc.GetZones(provider.ID)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(zones) != 2 {
+		t.Fatalf("expected 2 zones, got %d", len(zones))
+	}
+
+	countsByZoneID := map[uint]int{}
+	for _, zone := range zones {
+		countsByZoneID[zone.ID] = zone.QueueCount
+	}
+	if countsByZoneID[zoneA.ID] != 2 || countsByZoneID[zoneB.ID] != 1 {
+		t.Fatalf("unexpected counts: %+v", countsByZoneID)
+	}
+	if repo.batchCalls != 1 {
+		t.Fatalf("expected batch count lookup once, got %d", repo.batchCalls)
 	}
 }
 

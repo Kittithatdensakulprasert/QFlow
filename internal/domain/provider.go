@@ -32,6 +32,7 @@ type ProviderRepository interface {
 	FindZoneByID(id uint) (*Zone, error)
 	UpdateZone(zone *Zone) error
 	CountQueuesByZoneID(zoneID uint) (int, error)
+	CountQueuesByZoneIDs(zoneIDs []uint) (map[uint]int, error)
 }
 
 type ProviderService interface {
