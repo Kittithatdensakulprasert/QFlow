@@ -1,0 +1,2731 @@
+{
+  "info": {
+    "_postman_id": "5d6e9f1a-7a92-4c6d-9c2e-000000000001",
+    "name": "qflow-api",
+    "description": "Postman Collection for QFlow API. Run '00 Manual OTP Required' first to request and verify OTP for admin/provider/user, then run flows 04-10 for categories, providers, queues, notifications, and cleanup.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "11207137"
+  },
+  "item": [
+    {
+      "name": "00 Manual OTP Required",
+      "description": "Run these OTP requests manually on production-like environments. Fill *_otp_code variables from real OTP before Verify OTP requests.",
+      "item": [
+        {
+          "name": "01 Auth - Admin Token",
+          "item": [
+            {
+              "name": "Request OTP - Admin",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/auth/request-otp",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "request-otp"
+                  ]
+                },
+                "description": "Request OTP for Admin. In production, read OTP from SMS/provider and set {{admin_otp_code}} manually before Verify OTP.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"phone\": \"{{admin_phone}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": [
+                {
+                  "name": "Success",
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "cookie": [],
+                  "body": "{\n  \"message\": \"OTP sent successfully\",\n  \"otp_id\": 1,\n  \"otp_code\": \"123456\"\n}"
+                },
+                {
+                  "name": "Invalid Request",
+                  "status": "Bad Request",
+                  "code": 400,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "cookie": [],
+                  "body": "{\n  \"error\": \"invalid request format\"\n}"
+                }
+              ],
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const response = pm.response.json();",
+                      "if (response.otp_code) { pm.collectionVariables.set('admin_otp_code', response.otp_code); }",
+                      "pm.test('OTP request accepted', function () { pm.expect(pm.response.code).to.equal(200); });"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Verify OTP - Admin",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/auth/verify-otp",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "verify-otp"
+                  ]
+                },
+                "description": "Verify OTP for Admin and save JWT to {{admin_token}}.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"phone\": \"{{admin_phone}}\",\n  \"code\": \"{{admin_otp_code}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": [
+                {
+                  "name": "Success",
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "cookie": [],
+                  "body": "{\n  \"message\": \"OTP verified successfully\",\n  \"user\": {\n    \"id\": 1,\n    \"phone\": \"0811111111\",\n    \"name\": \"Bootstrap Admin\",\n    \"role\": \"admin\"\n  },\n  \"token\": \"jwt-token-value\"\n}"
+                },
+                {
+                  "name": "Invalid OTP",
+                  "status": "Unauthorized",
+                  "code": 401,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "cookie": [],
+                  "body": "{\n  \"error\": \"invalid or expired OTP\"\n}"
+                }
+              ],
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "// QFLOW_OTP_GUARD",
+                      "const otp = (pm.collectionVariables.get('admin_otp_code') || '').trim();",
+                      "if (!otp) {",
+                      "  console.warn('[SKIP] Missing admin_otp_code. Run Request OTP and fill this variable before Verify OTP.');",
+                      "  pm.execution.skipRequest();",
+                      "}"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Authentication response contains token', function () {",
+                      "  pm.expect(pm.response.code).to.equal(200);",
+                      "  pm.expect(pm.response.json()).to.have.property('token');",
+                      "});",
+                      "const response = pm.response.json();",
+                      "pm.test('Verified user has admin role', function () {",
+                      "  pm.expect(response).to.have.property('user');",
+                      "  pm.expect(response.user).to.have.property('role');",
+                      "  pm.expect(response.user.role).to.equal('admin');",
+                      "});",
+                      "if (response.token && response.user && response.user.role === 'admin') { pm.collectionVariables.set('admin_token', response.token); pm.collectionVariables.set('token', response.token); } else { pm.collectionVariables.set('admin_token', ''); }",
+                      "if (response.user && response.user.id && response.user.role === 'admin') { pm.collectionVariables.set('admin_id', response.user.id); } else { pm.collectionVariables.set('admin_id', ''); }"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "02 Auth - Provider Token",
+          "item": [
+            {
+              "name": "Request OTP - Provider",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/auth/request-otp",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "request-otp"
+                  ]
+                },
+                "description": "Request OTP for Provider. In production, read OTP from SMS/provider and set {{provider_otp_code}} manually before Verify OTP.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"phone\": \"{{provider_phone}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": [
+                {
+                  "name": "Success",
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "cookie": [],
+                  "body": "{\n  \"message\": \"OTP sent successfully\",\n  \"otp_id\": 1,\n  \"otp_code\": \"123456\"\n}"
+                },
+                {
+                  "name": "Invalid Request",
+                  "status": "Bad Request",
+                  "code": 400,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "cookie": [],
+                  "body": "{\n  \"error\": \"invalid request format\"\n}"
+                }
+              ],
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const response = pm.response.json();",
+                      "if (response.otp_code) { pm.collectionVariables.set('provider_otp_code', response.otp_code); }",
+                      "pm.test('OTP request accepted', function () { pm.expect(pm.response.code).to.equal(200); });"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Verify OTP - Provider",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/auth/verify-otp",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "verify-otp"
+                  ]
+                },
+                "description": "Verify OTP for Provider and save JWT to {{provider_token}}.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"phone\": \"{{provider_phone}}\",\n  \"code\": \"{{provider_otp_code}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": [
+                {
+                  "name": "Success",
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "cookie": [],
+                  "body": "{\n  \"message\": \"OTP verified successfully\",\n  \"user\": {\n    \"id\": 1,\n    \"phone\": \"0811111111\",\n    \"name\": \"Bootstrap Admin\",\n    \"role\": \"admin\"\n  },\n  \"token\": \"jwt-token-value\"\n}"
+                },
+                {
+                  "name": "Invalid OTP",
+                  "status": "Unauthorized",
+                  "code": 401,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "cookie": [],
+                  "body": "{\n  \"error\": \"invalid or expired OTP\"\n}"
+                }
+              ],
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "// QFLOW_OTP_GUARD",
+                      "const otp = (pm.collectionVariables.get('provider_otp_code') || '').trim();",
+                      "if (!otp) {",
+                      "  console.warn('[SKIP] Missing provider_otp_code. Run Request OTP and fill this variable before Verify OTP.');",
+                      "  pm.execution.skipRequest();",
+                      "}"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Authentication response contains token', function () {",
+                      "  pm.expect(pm.response.code).to.equal(200);",
+                      "  pm.expect(pm.response.json()).to.have.property('token');",
+                      "});",
+                      "const response = pm.response.json();",
+                      "pm.test('Verified user has provider role', function () {",
+                      "  pm.expect(response).to.have.property('user');",
+                      "  pm.expect(response.user).to.have.property('role');",
+                      "  pm.expect(response.user.role).to.equal('provider');",
+                      "});",
+                      "if (response.token && response.user && response.user.role === 'provider') { pm.collectionVariables.set('provider_token', response.token); pm.collectionVariables.set('token', response.token); } else { pm.collectionVariables.set('provider_token', ''); }",
+                      "if (response.user && response.user.id && response.user.role === 'provider') { pm.collectionVariables.set('provider_user_id', response.user.id); } else { pm.collectionVariables.set('provider_user_id', ''); }"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "03 Auth - User Token",
+          "item": [
+            {
+              "name": "Request OTP - User",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/auth/request-otp",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "request-otp"
+                  ]
+                },
+                "description": "Request OTP for User. In production, read OTP from SMS/provider and set {{user_otp_code}} manually before Verify OTP.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"phone\": \"{{user_phone}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": [
+                {
+                  "name": "Success",
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "cookie": [],
+                  "body": "{\n  \"message\": \"OTP sent successfully\",\n  \"otp_id\": 1,\n  \"otp_code\": \"123456\"\n}"
+                },
+                {
+                  "name": "Invalid Request",
+                  "status": "Bad Request",
+                  "code": 400,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "cookie": [],
+                  "body": "{\n  \"error\": \"invalid request format\"\n}"
+                }
+              ],
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const response = pm.response.json();",
+                      "if (response.otp_code) { pm.collectionVariables.set('user_otp_code', response.otp_code); }",
+                      "pm.test('OTP request accepted', function () { pm.expect(pm.response.code).to.equal(200); });"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Verify OTP - User",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/auth/verify-otp",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "verify-otp"
+                  ]
+                },
+                "description": "Verify OTP for User and save JWT to {{user_token}}.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"phone\": \"{{user_phone}}\",\n  \"code\": \"{{user_otp_code}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": [
+                {
+                  "name": "Success",
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "cookie": [],
+                  "body": "{\n  \"message\": \"OTP verified successfully\",\n  \"user\": {\n    \"id\": 1,\n    \"phone\": \"0811111111\",\n    \"name\": \"Bootstrap Admin\",\n    \"role\": \"admin\"\n  },\n  \"token\": \"jwt-token-value\"\n}"
+                },
+                {
+                  "name": "Invalid OTP",
+                  "status": "Unauthorized",
+                  "code": 401,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "cookie": [],
+                  "body": "{\n  \"error\": \"invalid or expired OTP\"\n}"
+                }
+              ],
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "// QFLOW_OTP_GUARD",
+                      "const otp = (pm.collectionVariables.get('user_otp_code') || '').trim();",
+                      "if (!otp) {",
+                      "  console.warn('[SKIP] Missing user_otp_code. Run Request OTP and fill this variable before Verify OTP.');",
+                      "  pm.execution.skipRequest();",
+                      "}"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Authentication response contains token', function () {",
+                      "  pm.expect(pm.response.code).to.equal(200);",
+                      "  pm.expect(pm.response.json()).to.have.property('token');",
+                      "});",
+                      "const response = pm.response.json();",
+                      "if (response.token) { pm.collectionVariables.set('user_token', response.token); pm.collectionVariables.set('token', response.token); }",
+                      "if (response.user && response.user.id) { pm.collectionVariables.set('user_id', response.user.id); }"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Get My Profile",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{base_url}}/auth/me",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "me"
+                  ]
+                },
+                "description": "Get authenticated user profile.",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{user_token}}",
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "response": [
+                {
+                  "name": "Success",
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "cookie": [],
+                  "body": "{\n  \"user\": {\n    \"id\": 1,\n    \"phone\": \"0833333333\",\n    \"name\": \"0833333333\",\n    \"role\": \"user\"\n  }\n}"
+                }
+              ],
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status is 200', function () { pm.expect(pm.response.code).to.equal(200); });"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Update My Profile",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/auth/me",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "auth",
+                    "me"
+                  ]
+                },
+                "description": "Update authenticated user profile.",
+                "auth": {
+                  "type": "bearer",
+                  "bearer": [
+                    {
+                      "key": "token",
+                      "value": "{{user_token}}",
+                      "type": "string"
+                    }
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Updated User {{$timestamp}}\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "response": [
+                {
+                  "name": "Success",
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "cookie": [],
+                  "body": "{\n  \"message\": \"Profile updated successfully\"\n}"
+                }
+              ],
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Status is 200', function () { pm.expect(pm.response.code).to.equal(200); });"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "04 Category",
+      "item": [
+        {
+          "name": "Create Category - Provider Flow",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/categories",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "categories"
+              ]
+            },
+            "description": "Create category used later by provider. Requires admin token.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Thai Restaurant {{$timestamp}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "Created",
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"id\": 1,\n  \"name\": \"Thai Restaurant\"\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// QFLOW_TOKEN_GUARD",
+                  "const token = (pm.collectionVariables.get('admin_token') || '').trim();",
+                  "if (!token) {",
+                  "  console.warn('[SKIP] Missing collection variable: admin_token. Fill it before running this flow.');",
+                  "  pm.execution.skipRequest();",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Response status is 201', function () { pm.expect(pm.response.code).to.be.oneOf([201]); });",
+                  "const response = pm.response.json();",
+                  "if (response.id) { pm.collectionVariables.set('category_id', response.id); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Categories",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/categories",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "categories"
+              ]
+            },
+            "description": "Get all categories. Public endpoint."
+          },
+          "response": [
+            {
+              "name": "Success",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "[\n  {\n    \"id\": 1,\n    \"name\": \"Thai Restaurant\"\n  }\n]"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.expect(pm.response.code).to.equal(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Category By ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/categories/{{category_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "categories",
+                "{{category_id}}"
+              ]
+            },
+            "description": "Get category by id. Public endpoint."
+          },
+          "response": [
+            {
+              "name": "Success",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"id\": 1,\n  \"name\": \"Thai Restaurant\"\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// QFLOW_ID_GUARD_category_id",
+                  "const requiredId = (pm.collectionVariables.get('category_id') || '').toString().trim();",
+                  "if (!requiredId) {",
+                  "  console.warn('[SKIP] Missing collection variable: category_id. Run prerequisite creation step first.');",
+                  "  pm.execution.skipRequest();",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.expect(pm.response.code).to.equal(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update Category",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/categories/{{category_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "categories",
+                "{{category_id}}"
+              ]
+            },
+            "description": "Update provider-flow category. Requires admin token.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Authentic Thai Restaurant {{$timestamp}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "Success",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"id\": 1,\n  \"name\": \"Authentic Thai Restaurant\"\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// QFLOW_TOKEN_GUARD",
+                  "const token = (pm.collectionVariables.get('admin_token') || '').trim();",
+                  "if (!token) {",
+                  "  console.warn('[SKIP] Missing collection variable: admin_token. Fill it before running this flow.');",
+                  "  pm.execution.skipRequest();",
+                  "}",
+                  "// QFLOW_ID_GUARD_category_id",
+                  "const requiredId = (pm.collectionVariables.get('category_id') || '').toString().trim();",
+                  "if (!requiredId) {",
+                  "  console.warn('[SKIP] Missing collection variable: category_id. Run prerequisite creation step first.');",
+                  "  pm.execution.skipRequest();",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.expect(pm.response.code).to.equal(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Category - Delete Flow",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/categories",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "categories"
+              ]
+            },
+            "description": "Create an isolated category for delete testing. It is not linked to any provider.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Delete Test Category {{$timestamp}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "Created",
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"id\": 2,\n  \"name\": \"Delete Test Category\"\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// QFLOW_TOKEN_GUARD",
+                  "const token = (pm.collectionVariables.get('admin_token') || '').trim();",
+                  "if (!token) {",
+                  "  console.warn('[SKIP] Missing collection variable: admin_token. Fill it before running this flow.');",
+                  "  pm.execution.skipRequest();",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Response status is 201', function () { pm.expect(pm.response.code).to.be.oneOf([201]); });",
+                  "const response = pm.response.json();",
+                  "if (response.id) { pm.collectionVariables.set('delete_category_id', response.id); }"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "05 Provider & Zone",
+      "item": [
+        {
+          "name": "Create Provider",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/providers",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers"
+              ]
+            },
+            "description": "Create provider using category_id. Requires admin token.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Chicken Rice Shop {{$timestamp}}\",\n  \"category_id\": {{category_id}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "Created",
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"id\": 1,\n  \"name\": \"Chicken Rice Shop\",\n  \"category_id\": 1\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// QFLOW_TOKEN_GUARD",
+                  "const token = (pm.collectionVariables.get('admin_token') || '').trim();",
+                  "if (!token) {",
+                  "  console.warn('[SKIP] Missing collection variable: admin_token. Fill it before running this flow.');",
+                  "  pm.execution.skipRequest();",
+                  "}",
+                  "// QFLOW_ID_GUARD_category_id",
+                  "const requiredId = (pm.collectionVariables.get('category_id') || '').toString().trim();",
+                  "if (!requiredId) {",
+                  "  console.warn('[SKIP] Missing collection variable: category_id. Run prerequisite creation step first.');",
+                  "  pm.execution.skipRequest();",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Response status is 201', function () { pm.expect(pm.response.code).to.be.oneOf([201]); });",
+                  "const response = pm.response.json();",
+                  "if (response.id) { pm.collectionVariables.set('provider_id', response.id); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Providers",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/providers",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers"
+              ]
+            },
+            "description": "Get all providers. Public endpoint."
+          },
+          "response": [
+            {
+              "name": "Success",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "[\n  {\n    \"id\": 1,\n    \"name\": \"Chicken Rice Shop\",\n    \"category_id\": 1\n  }\n]"
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.expect(pm.response.code).to.equal(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Zone",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/providers/{{provider_id}}/zones",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "{{provider_id}}",
+                "zones"
+              ]
+            },
+            "description": "Create zone. Requires provider token.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{provider_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Zone A {{$timestamp}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "Created",
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"id\": 1,\n  \"provider_id\": 1,\n  \"name\": \"Zone A\",\n  \"is_open\": true\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// QFLOW_TOKEN_GUARD",
+                  "const token = (pm.collectionVariables.get('provider_token') || '').trim();",
+                  "if (!token) {",
+                  "  console.warn('[SKIP] Missing collection variable: provider_token. Fill it before running this flow.');",
+                  "  pm.execution.skipRequest();",
+                  "}",
+                  "// QFLOW_ID_GUARD_provider_id",
+                  "const requiredId = (pm.collectionVariables.get('provider_id') || '').toString().trim();",
+                  "if (!requiredId) {",
+                  "  console.warn('[SKIP] Missing collection variable: provider_id. Run prerequisite creation step first.');",
+                  "  pm.execution.skipRequest();",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Response status is 201', function () { pm.expect(pm.response.code).to.be.oneOf([201]); });",
+                  "const response = pm.response.json();",
+                  "if (response.id) { pm.collectionVariables.set('zone_id', response.id); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Zones",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/providers/{{provider_id}}/zones",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "providers",
+                "{{provider_id}}",
+                "zones"
+              ]
+            },
+            "description": "Get provider zones. Public endpoint."
+          },
+          "response": [
+            {
+              "name": "Success",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "[\n  {\n    \"id\": 1,\n    \"provider_id\": 1,\n    \"name\": \"Zone A\",\n    \"is_open\": true\n  }\n]"
+            }
+          ],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// QFLOW_ID_GUARD_provider_id",
+                  "const requiredId = (pm.collectionVariables.get('provider_id') || '').toString().trim();",
+                  "if (!requiredId) {",
+                  "  console.warn('[SKIP] Missing collection variable: provider_id. Run prerequisite creation step first.');",
+                  "  pm.execution.skipRequest();",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.expect(pm.response.code).to.equal(200); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "06 Queue - Complete Flow",
+      "item": [
+        {
+          "name": "Book Queue - Complete Flow",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/queues/book",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "queues",
+                "book"
+              ]
+            },
+            "description": "Create queue for call/complete test.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{user_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"zone_id\": {{zone_id}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "Created",
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"id\": 1,\n  \"queue_number\": 1,\n  \"status\": \"waiting\"\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// QFLOW_TOKEN_GUARD",
+                  "const token = (pm.collectionVariables.get('user_token') || '').trim();",
+                  "if (!token) {",
+                  "  console.warn('[SKIP] Missing collection variable: user_token. Fill it before running this flow.');",
+                  "  pm.execution.skipRequest();",
+                  "}",
+                  "// QFLOW_ID_GUARD_zone_id",
+                  "const requiredId = (pm.collectionVariables.get('zone_id') || '').toString().trim();",
+                  "if (!requiredId) {",
+                  "  console.warn('[SKIP] Missing collection variable: zone_id. Run prerequisite creation step first.');",
+                  "  pm.execution.skipRequest();",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Queue was created', function () { pm.expect(pm.response.code).to.equal(201); });",
+                  "const response = pm.response.json();",
+                  "if (response.id) { pm.collectionVariables.set('complete_queue_id', response.id); }",
+                  "if (response.queue_number) { pm.collectionVariables.set('complete_queue_number', response.queue_number); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Queue - Complete Flow",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/queues/{{complete_queue_number}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "queues",
+                "{{complete_queue_number}}"
+              ]
+            },
+            "description": "Get queue by queue_number before management.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{user_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "Success",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"id\": 1,\n  \"queue_number\": 1,\n  \"status\": \"waiting\"\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// QFLOW_TOKEN_GUARD",
+                  "const token = (pm.collectionVariables.get('user_token') || '').trim();",
+                  "if (!token) {",
+                  "  console.warn('[SKIP] Missing collection variable: user_token. Fill it before running this flow.');",
+                  "  pm.execution.skipRequest();",
+                  "}",
+                  "// QFLOW_ID_GUARD_complete_queue_number",
+                  "const requiredId = (pm.collectionVariables.get('complete_queue_number') || '').toString().trim();",
+                  "if (!requiredId) {",
+                  "  console.warn('[SKIP] Missing collection variable: complete_queue_number. Run prerequisite creation step first.');",
+                  "  pm.execution.skipRequest();",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.expect(pm.response.code).to.equal(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Queue History",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/queues/history",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "queues",
+                "history"
+              ]
+            },
+            "description": "Get queue history for current user.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{user_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "Success",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "[]"
+            }
+          ],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// QFLOW_TOKEN_GUARD",
+                  "const token = (pm.collectionVariables.get('user_token') || '').trim();",
+                  "if (!token) {",
+                  "  console.warn('[SKIP] Missing collection variable: user_token. Fill it before running this flow.');",
+                  "  pm.execution.skipRequest();",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.expect(pm.response.code).to.equal(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Queues By Zone",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/manage/queues/{{zone_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "manage",
+                "queues",
+                "{{zone_id}}"
+              ]
+            },
+            "description": "Provider reads queues in zone.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{provider_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "Success",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "[]"
+            }
+          ],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// QFLOW_TOKEN_GUARD",
+                  "const token = (pm.collectionVariables.get('provider_token') || '').trim();",
+                  "if (!token) {",
+                  "  console.warn('[SKIP] Missing collection variable: provider_token. Fill it before running this flow.');",
+                  "  pm.execution.skipRequest();",
+                  "}",
+                  "// QFLOW_ID_GUARD_zone_id",
+                  "const requiredId = (pm.collectionVariables.get('zone_id') || '').toString().trim();",
+                  "if (!requiredId) {",
+                  "  console.warn('[SKIP] Missing collection variable: zone_id. Run prerequisite creation step first.');",
+                  "  pm.execution.skipRequest();",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.expect(pm.response.code).to.equal(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Call Queue",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/manage/queues/{{complete_queue_id}}/call",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "manage",
+                "queues",
+                "{{complete_queue_id}}",
+                "call"
+              ]
+            },
+            "description": "Call waiting queue.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{provider_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "Success",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"id\": 1,\n  \"status\": \"called\"\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// QFLOW_TOKEN_GUARD",
+                  "const token = (pm.collectionVariables.get('provider_token') || '').trim();",
+                  "if (!token) {",
+                  "  console.warn('[SKIP] Missing collection variable: provider_token. Fill it before running this flow.');",
+                  "  pm.execution.skipRequest();",
+                  "}",
+                  "// QFLOW_ID_GUARD_complete_queue_id",
+                  "const requiredId = (pm.collectionVariables.get('complete_queue_id') || '').toString().trim();",
+                  "if (!requiredId) {",
+                  "  console.warn('[SKIP] Missing collection variable: complete_queue_id. Run prerequisite creation step first.');",
+                  "  pm.execution.skipRequest();",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.expect(pm.response.code).to.equal(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Complete Queue",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/manage/queues/{{complete_queue_id}}/complete",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "manage",
+                "queues",
+                "{{complete_queue_id}}",
+                "complete"
+              ]
+            },
+            "description": "Complete called queue.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{provider_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "Success",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"id\": 1,\n  \"status\": \"completed\"\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// QFLOW_TOKEN_GUARD",
+                  "const token = (pm.collectionVariables.get('provider_token') || '').trim();",
+                  "if (!token) {",
+                  "  console.warn('[SKIP] Missing collection variable: provider_token. Fill it before running this flow.');",
+                  "  pm.execution.skipRequest();",
+                  "}",
+                  "// QFLOW_ID_GUARD_complete_queue_id",
+                  "const requiredId = (pm.collectionVariables.get('complete_queue_id') || '').toString().trim();",
+                  "if (!requiredId) {",
+                  "  console.warn('[SKIP] Missing collection variable: complete_queue_id. Run prerequisite creation step first.');",
+                  "  pm.execution.skipRequest();",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.expect(pm.response.code).to.equal(200); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "07 Queue - Skip Flow",
+      "item": [
+        {
+          "name": "Book Queue - Skip Flow",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/queues/book",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "queues",
+                "book"
+              ]
+            },
+            "description": "Create a fresh waiting queue for skip test.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{user_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"zone_id\": {{zone_id}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "Created",
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"id\": 2,\n  \"queue_number\": 2,\n  \"status\": \"waiting\"\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// QFLOW_TOKEN_GUARD",
+                  "const token = (pm.collectionVariables.get('user_token') || '').trim();",
+                  "if (!token) {",
+                  "  console.warn('[SKIP] Missing collection variable: user_token. Fill it before running this flow.');",
+                  "  pm.execution.skipRequest();",
+                  "}",
+                  "// QFLOW_ID_GUARD_zone_id",
+                  "const requiredId = (pm.collectionVariables.get('zone_id') || '').toString().trim();",
+                  "if (!requiredId) {",
+                  "  console.warn('[SKIP] Missing collection variable: zone_id. Run prerequisite creation step first.');",
+                  "  pm.execution.skipRequest();",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Queue was created', function () { pm.expect(pm.response.code).to.equal(201); });",
+                  "const response = pm.response.json();",
+                  "if (response.id) { pm.collectionVariables.set('skip_queue_id', response.id); }",
+                  "if (response.queue_number) { pm.collectionVariables.set('skip_queue_number', response.queue_number); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Skip Queue",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/manage/queues/{{skip_queue_id}}/skip",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "manage",
+                "queues",
+                "{{skip_queue_id}}",
+                "skip"
+              ]
+            },
+            "description": "Skip a fresh waiting queue. Requires provider token.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{provider_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "Success",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"id\": 2,\n  \"status\": \"skipped\"\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// QFLOW_TOKEN_GUARD",
+                  "const token = (pm.collectionVariables.get('provider_token') || '').trim();",
+                  "if (!token) {",
+                  "  console.warn('[SKIP] Missing collection variable: provider_token. Fill it before running this flow.');",
+                  "  pm.execution.skipRequest();",
+                  "}",
+                  "// QFLOW_ID_GUARD_skip_queue_id",
+                  "const requiredId = (pm.collectionVariables.get('skip_queue_id') || '').toString().trim();",
+                  "if (!requiredId) {",
+                  "  console.warn('[SKIP] Missing collection variable: skip_queue_id. Run prerequisite creation step first.');",
+                  "  pm.execution.skipRequest();",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.expect(pm.response.code).to.equal(200); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "08 Queue - Cancel Flow",
+      "item": [
+        {
+          "name": "Book Queue - Cancel Flow",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/queues/book",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "queues",
+                "book"
+              ]
+            },
+            "description": "Create a fresh waiting queue for cancel test.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{user_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"zone_id\": {{zone_id}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "Created",
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"id\": 3,\n  \"queue_number\": 3,\n  \"status\": \"waiting\"\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// QFLOW_TOKEN_GUARD",
+                  "const token = (pm.collectionVariables.get('user_token') || '').trim();",
+                  "if (!token) {",
+                  "  console.warn('[SKIP] Missing collection variable: user_token. Fill it before running this flow.');",
+                  "  pm.execution.skipRequest();",
+                  "}",
+                  "// QFLOW_ID_GUARD_zone_id",
+                  "const requiredId = (pm.collectionVariables.get('zone_id') || '').toString().trim();",
+                  "if (!requiredId) {",
+                  "  console.warn('[SKIP] Missing collection variable: zone_id. Run prerequisite creation step first.');",
+                  "  pm.execution.skipRequest();",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Queue was created', function () { pm.expect(pm.response.code).to.equal(201); });",
+                  "const response = pm.response.json();",
+                  "if (response.id) { pm.collectionVariables.set('cancel_queue_id', response.id); }",
+                  "if (response.queue_number) { pm.collectionVariables.set('cancel_queue_number', response.queue_number); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Cancel Queue",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/queues/{{cancel_queue_id}}/cancel",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "queues",
+                "{{cancel_queue_id}}",
+                "cancel"
+              ]
+            },
+            "description": "Cancel a fresh waiting queue. Requires user token.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{user_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "Success",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"message\": \"queue cancelled\"\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// QFLOW_TOKEN_GUARD",
+                  "const token = (pm.collectionVariables.get('user_token') || '').trim();",
+                  "if (!token) {",
+                  "  console.warn('[SKIP] Missing collection variable: user_token. Fill it before running this flow.');",
+                  "  pm.execution.skipRequest();",
+                  "}",
+                  "// QFLOW_ID_GUARD_cancel_queue_id",
+                  "const requiredId = (pm.collectionVariables.get('cancel_queue_id') || '').toString().trim();",
+                  "if (!requiredId) {",
+                  "  console.warn('[SKIP] Missing collection variable: cancel_queue_id. Run prerequisite creation step first.');",
+                  "  pm.execution.skipRequest();",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.expect(pm.response.code).to.equal(200); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "09 Notification",
+      "item": [
+        {
+          "name": "Send Notification",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/notifications/send",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "notifications",
+                "send"
+              ]
+            },
+            "description": "Send notification to current user.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{user_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"message\": \"queue called\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "Created",
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"id\": 1,\n  \"message\": \"queue called\"\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// QFLOW_TOKEN_GUARD",
+                  "const token = (pm.collectionVariables.get('user_token') || '').trim();",
+                  "if (!token) {",
+                  "  console.warn('[SKIP] Missing collection variable: user_token. Fill it before running this flow.');",
+                  "  pm.execution.skipRequest();",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Response status is 201', function () { pm.expect(pm.response.code).to.be.oneOf([201]); });",
+                  "const response = pm.response.json();",
+                  "if (response.id) { pm.collectionVariables.set('notification_id', response.id); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Notifications",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/notifications",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "notifications"
+              ]
+            },
+            "description": "Get current user notifications.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{user_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "Success",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "[]"
+            }
+          ],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// QFLOW_TOKEN_GUARD",
+                  "const token = (pm.collectionVariables.get('user_token') || '').trim();",
+                  "if (!token) {",
+                  "  console.warn('[SKIP] Missing collection variable: user_token. Fill it before running this flow.');",
+                  "  pm.execution.skipRequest();",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.expect(pm.response.code).to.equal(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Mark Notification Read",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/notifications/{{notification_id}}/read",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "notifications",
+                "{{notification_id}}",
+                "read"
+              ]
+            },
+            "description": "Mark notification read.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{user_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "Success",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"message\": \"marked as read\"\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// QFLOW_TOKEN_GUARD",
+                  "const token = (pm.collectionVariables.get('user_token') || '').trim();",
+                  "if (!token) {",
+                  "  console.warn('[SKIP] Missing collection variable: user_token. Fill it before running this flow.');",
+                  "  pm.execution.skipRequest();",
+                  "}",
+                  "// QFLOW_ID_GUARD_notification_id",
+                  "const requiredId = (pm.collectionVariables.get('notification_id') || '').toString().trim();",
+                  "if (!requiredId) {",
+                  "  console.warn('[SKIP] Missing collection variable: notification_id. Run prerequisite creation step first.');",
+                  "  pm.execution.skipRequest();",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.expect(pm.response.code).to.equal(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete Notification",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/notifications/{{notification_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "notifications",
+                "{{notification_id}}"
+              ]
+            },
+            "description": "Delete notification.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{user_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "Success",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"message\": \"deleted\"\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// QFLOW_TOKEN_GUARD",
+                  "const token = (pm.collectionVariables.get('user_token') || '').trim();",
+                  "if (!token) {",
+                  "  console.warn('[SKIP] Missing collection variable: user_token. Fill it before running this flow.');",
+                  "  pm.execution.skipRequest();",
+                  "}",
+                  "// QFLOW_ID_GUARD_notification_id",
+                  "const requiredId = (pm.collectionVariables.get('notification_id') || '').toString().trim();",
+                  "if (!requiredId) {",
+                  "  console.warn('[SKIP] Missing collection variable: notification_id. Run prerequisite creation step first.');",
+                  "  pm.execution.skipRequest();",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.expect(pm.response.code).to.equal(200); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "10 Cleanup / Final State",
+      "item": [
+        {
+          "name": "Toggle Zone",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/zones/{{zone_id}}/toggle",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "zones",
+                "{{zone_id}}",
+                "toggle"
+              ]
+            },
+            "description": "Toggle zone after all queue bookings are done.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{provider_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "Success",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"id\": 1,\n  \"is_open\": false\n}"
+            }
+          ],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// QFLOW_TOKEN_GUARD",
+                  "const token = (pm.collectionVariables.get('provider_token') || '').trim();",
+                  "if (!token) {",
+                  "  console.warn('[SKIP] Missing collection variable: provider_token. Fill it before running this flow.');",
+                  "  pm.execution.skipRequest();",
+                  "}",
+                  "// QFLOW_ID_GUARD_zone_id",
+                  "const requiredId = (pm.collectionVariables.get('zone_id') || '').toString().trim();",
+                  "if (!requiredId) {",
+                  "  console.warn('[SKIP] Missing collection variable: zone_id. Run prerequisite creation step first.');",
+                  "  pm.execution.skipRequest();",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.expect(pm.response.code).to.equal(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete Category",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/categories/{{delete_category_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "categories",
+                "{{delete_category_id}}"
+              ]
+            },
+            "description": "Delete isolated category that is not referenced by providers.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "No Content",
+              "status": "No Content",
+              "code": 204,
+              "_postman_previewlanguage": "text",
+              "header": [],
+              "cookie": [],
+              "body": ""
+            }
+          ],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// QFLOW_TOKEN_GUARD",
+                  "const token = (pm.collectionVariables.get('admin_token') || '').trim();",
+                  "if (!token) {",
+                  "  console.warn('[SKIP] Missing collection variable: admin_token. Fill it before running this flow.');",
+                  "  pm.execution.skipRequest();",
+                  "}",
+                  "// QFLOW_ID_GUARD_delete_category_id",
+                  "const requiredId = (pm.collectionVariables.get('delete_category_id') || '').toString().trim();",
+                  "if (!requiredId) {",
+                  "  console.warn('[SKIP] Missing collection variable: delete_category_id. Run prerequisite creation step first.');",
+                  "  pm.execution.skipRequest();",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 204', function () { pm.expect(pm.response.code).to.equal(204); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "https://qflow-sd4z.onrender.com/api",
+      "type": "string"
+    },
+    {
+      "key": "token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "admin_phone",
+      "value": "0812345678",
+      "type": "string"
+    },
+    {
+      "key": "provider_phone",
+      "value": "0912345678",
+      "type": "string"
+    },
+    {
+      "key": "user_phone",
+      "value": "0833333333",
+      "type": "string"
+    },
+    {
+      "key": "admin_otp_code",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "provider_otp_code",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "user_otp_code",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "admin_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "provider_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "user_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "admin_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "provider_user_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "user_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "category_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "delete_category_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "provider_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "zone_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "complete_queue_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "complete_queue_number",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "skip_queue_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "skip_queue_number",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "cancel_queue_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "cancel_queue_number",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "notification_id",
+      "value": "",
+      "type": "string"
+    }
+  ]
+}
