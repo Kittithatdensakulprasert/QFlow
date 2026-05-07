@@ -71,10 +71,18 @@ jobs:
           go-version-file: go.mod
           cache: true
 
+      - name: Install gosec
+        run: go install github.com/securego/gosec/v2/cmd/gosec@v2.22.4
+
       - name: Run gosec (fail on medium+)
-        uses: securego/gosec@v2.22.4
-        with:
-          args: "-severity medium -confidence medium -fmt sarif -out gosec.sarif ./..."
+        run: gosec -severity medium -confidence medium -fmt sarif -out gosec.sarif ./...
+        continue-on-error: true
+
+      - name: Fail if gosec found issues
+        run: |
+          ISSUES=$(cat gosec.sarif | python3 -c "import sys,json; d=json.load(sys.stdin); print(len(d.get('runs',[{}])[0].get('results',[])))")
+          echo "gosec issues: $ISSUES"
+          [ "$ISSUES" -eq 0 ]
 
       - name: Upload gosec SARIF
         if: always()
