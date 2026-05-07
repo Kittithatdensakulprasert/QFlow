@@ -45,12 +45,13 @@ CREATE TABLE IF NOT EXISTS zones (
 
 CREATE TABLE IF NOT EXISTS queues (
     id           SERIAL PRIMARY KEY,
-    queue_number INTEGER UNIQUE NOT NULL,
+    queue_number INTEGER NOT NULL,
     zone_id      INTEGER NOT NULL REFERENCES zones(id) ON DELETE CASCADE,
     user_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     status       VARCHAR(20) NOT NULL DEFAULT 'waiting',  -- waiting, called, completed, skipped, cancelled
     created_at   TIMESTAMP NOT NULL DEFAULT NOW(),
-    updated_at   TIMESTAMP NOT NULL DEFAULT NOW()
+    updated_at   TIMESTAMP NOT NULL DEFAULT NOW(),
+    UNIQUE (zone_id, queue_number)
 );
 
 CREATE TABLE IF NOT EXISTS notifications (
@@ -61,3 +62,19 @@ CREATE TABLE IF NOT EXISTS notifications (
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
+
+-- Indexes for OTP lookups
+CREATE INDEX IF NOT EXISTS idx_otps_phone      ON otps (phone);
+CREATE INDEX IF NOT EXISTS idx_otps_expires_at ON otps (expires_at);
+
+-- Indexes for FK columns (providers, zones)
+CREATE INDEX IF NOT EXISTS idx_providers_category_id ON providers (category_id);
+CREATE INDEX IF NOT EXISTS idx_zones_provider_id     ON zones (provider_id);
+
+-- Indexes for FK columns and status filter (queues)
+CREATE INDEX IF NOT EXISTS idx_queues_zone_id ON queues (zone_id);
+CREATE INDEX IF NOT EXISTS idx_queues_user_id ON queues (user_id);
+CREATE INDEX IF NOT EXISTS idx_queues_status  ON queues (status);
+
+-- Index for notification lookup by user
+CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications (user_id);
