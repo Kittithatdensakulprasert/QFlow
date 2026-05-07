@@ -1,194 +1,381 @@
-# QFlow — Queue Management API
+# 🚀 QFlow — Queue Management API (Refactored Edition)
 
-ระบบจัดการคิวออนไลน์ พัฒนาด้วย Go + Gin Framework สำหรับวิชา CS367 Web Service Development Concepts
-
-**6 Modules — 27 Endpoints — 4 User Roles**
+ระบบจัดการคิวออนไลน์ (Queue Management System) พัฒนาด้วย Go + Gin Framework รองรับการจองคิว, จัดการคิว, และระบบแจ้งเตือนแบบครบวงจร พร้อมโครงสร้างแบบ Clean Architecture และรองรับ CI/CD
 
 ---
 
-## Tech Stack
+## 📌 Overview
 
-- **Language:** Go
-- **Framework:** Gin
-- **Database:** PostgreSQL + GORM
-- **Auth:** JWT + OTP
-- **Container:** Docker
+QFlow เป็น RESTful API สำหรับระบบจัดการคิว ที่รองรับหลาย role:
+
+* Guest
+* User
+* Provider
+* Admin
+
+รองรับ workflow:
+
+* สมัครสมาชิก + OTP Authentication
+* จองคิว (Queue Booking)
+* จัดการคิว (Queue Management)
+* ระบบแจ้งเตือน (Notification)
 
 ---
 
-## โครงสร้างโปรเจกต์
+## 🧱 Architecture (Refactored)
+
+โครงสร้างถูกปรับเป็น **Clean Architecture**
 
 ```
-QFlow/
-├── main.go
-├── config/
-│   └── config.go               ← โหลด environment variables
-├── internal/
-│   ├── domain/                 ← entities และ interfaces
-│   │   ├── auth.go
-│   │   ├── category.go
-│   │   ├── provider.go
-│   │   ├── queue.go
-│   │   └── notification.go
-│   ├── handler/                ← HTTP handlers (Gin)
-│   │   ├── auth_handler.go
-│   │   ├── category_handler.go
-│   │   ├── provider_handler.go
-│   │   ├── queue_handler.go
-│   │   └── notification_handler.go
-│   ├── service/                ← business logic
-│   ├── repository/             ← database access layer
-│   ├── middleware/
-│   │   └── auth.go             ← JWT middleware
-│   └── router/
-│       └── router.go           ← ลงทะเบียน routes ทั้งหมด
-└── db/
-    └── migrations/             ← SQL migration files
+internal/
+├── domain/        # Entity + Interface
+├── service/       # Business Logic
+├── repository/    # Database Layer (GORM)
+├── handler/       # HTTP Layer (Gin)
+├── middleware/    # JWT Middleware
+└── router/        # Route Registration
+```
+
+### ✅ Benefits
+
+* แยกความรับผิดชอบชัดเจน
+* Test ได้ง่าย (mock dependency)
+* Maintain ง่าย
+* Scale ได้ในอนาคต
+
+---
+
+## ⚙️ Tech Stack
+
+* Language: Go
+* Framework: Gin
+* Database: PostgreSQL + GORM
+* Authentication: JWT + OTP
+* Container: Docker + Docker Compose
+* API Docs: Swagger
+* API Testing: Postman
+* CI/CD: GitHub Actions
+* Deployment: DockerHub
+
+---
+
+## 🔗 System Flow (CI/CD + Deployment)
+
+```
+Developer → Push Code → GitHub
+                ↓
+        GitHub Actions (CI)
+        - Run Unit Tests
+        - Build Docker Image
+                ↓
+        Push Image → DockerHub
+                ↓
+        Deploy (Docker Compose / Server)
+                ↓
+        Test via Swagger / Postman
 ```
 
 ---
 
-## สมาชิกกลุ่มและการแบ่งงาน
+## 📦 API Documentation
 
-### Auth Module
+### 🔹 Swagger
 
-| ชื่อ | งานที่รับผิดชอบ | Branch |
-|------|----------------|--------|
-| กิตติธัช เด่นสกุลประเสริฐ | `POST /api/auth/request-otp`, `POST /api/auth/verify-otp`, `POST /api/auth/register`, `GET /api/auth/me`, `PUT /api/auth/me`, **Unit Test: Auth** | `feature/auth` |
+ใช้ดู API และทดสอบแบบ interactive
 
-### Category Module
+```
+http://localhost:3000/swagger/index.html
+```
 
-| ชื่อ | งานที่รับผิดชอบ | Branch |
-|------|----------------|--------|
-| พิรญาณ์ เอนอ่อน | `GET /api/categories`, `GET /api/categories/:id`, `POST /api/categories`, `PUT /api/categories/:id`, `DELETE /api/categories/:id`, **Unit Test: Category** | `feature/category` |
+สามารถ:
 
-### Provider & Zone Module
-
-| ชื่อ | งานที่รับผิดชอบ | Branch |
-|------|----------------|--------|
-| ณัฏฐ์ ศรีสุวรรณกุล | `POST /api/providers`, `POST /api/providers/:id/zones`, `GET /api/providers`, `GET /api/providers/:id/zones`, `PATCH /api/zones/:id/toggle`, **Unit Test: Provider & Zone** | `feature/provider-zone` |
-
-### Queue Booking Module
-
-| ชื่อ | งานที่รับผิดชอบ | Branch |
-|------|----------------|--------|
-| ธนกฤต พิบูลย์สวัสดิ์ | `POST /api/queues/book`, `GET /api/queues/:queueNumber`, `GET /api/queues/history`, `PATCH /api/queues/:id/cancel`, **Docker (Dockerfile + docker-compose)**, **Unit Test: Queue Booking** | `feature/queue-booking` |
-
-### Queue Management Module
-
-| ชื่อ | งานที่รับผิดชอบ | Branch |
-|------|----------------|--------|
-| พชร พรพงศ์ | `GET /api/manage/queues/:zoneId`, `PATCH /api/manage/queues/:id/call`, `PATCH /api/manage/queues/:id/complete`, `PATCH /api/manage/queues/:id/skip`, **JWT Authentication Middleware**, **Unit Test: Queue Management** | `feature/queue-management` |
-
-### Notification Module
-
-| ชื่อ | งานที่รับผิดชอบ | Branch |
-|------|----------------|--------|
-| กิตติภณ คำนวล | `GET /api/notifications`, `PATCH /api/notifications/:id/read`, `DELETE /api/notifications/:id`, `POST /api/notifications/send`, **Database Schema + Migration**, **Unit Test: Notification** | `feature/notification` |
+* ดู endpoints ทั้งหมด
+* กดทดลองยิง API
+* ใส่ JWT Token
 
 ---
 
-## API Endpoints
+### 🔹 Postman
 
-### Auth Module (5 endpoints)
-| Method | Endpoint | คำอธิบาย | Role |
-|--------|----------|----------|------|
-| `POST` | `/api/auth/request-otp` | ขอ OTP | Guest |
-| `POST` | `/api/auth/verify-otp` | ยืนยัน OTP → JWT | Guest |
-| `POST` | `/api/auth/register` | ลงทะเบียน | Guest |
-| `GET` | `/api/auth/me` | ดู Profile | User |
-| `PUT` | `/api/auth/me` | แก้ไข Profile | User |
+ไฟล์ collection:
 
-### Category Module (5 endpoints)
-| Method | Endpoint | คำอธิบาย | Role |
-|--------|----------|----------|------|
-| `GET` | `/api/categories` | ดูประเภทร้านทั้งหมด | Guest |
-| `GET` | `/api/categories/:id` | รายละเอียดของประเภท | Guest |
-| `POST` | `/api/categories` | สร้างประเภท | Admin |
-| `PUT` | `/api/categories/:id` | แก้ไขประเภท | Admin |
-| `DELETE` | `/api/categories/:id` | ลบประเภท | Admin |
+```
+postman/QFlow.postman_collection.json
+```
 
-### Provider & Zone Module (5 endpoints)
-| Method | Endpoint | คำอธิบาย | Role |
-|--------|----------|----------|------|
-| `POST` | `/api/providers` | สร้างผู้ให้บริการ | Admin |
-| `GET` | `/api/providers` | ดูผู้ให้บริการทั้งหมด | Guest |
-| `POST` | `/api/providers/:id/zones` | เพิ่มโซนใหม่ | Provider |
-| `GET` | `/api/providers/:id/zones` | ดูโซน + จำนวนคิว | Guest |
-| `PATCH` | `/api/zones/:id/toggle` | เปิด/ปิดโซน | Provider |
+วิธีใช้:
 
-### Queue Booking Module (4 endpoints)
-| Method | Endpoint | คำอธิบาย | Role |
-|--------|----------|----------|------|
-| `POST` | `/api/queues/book` | จองคิว → ได้รับเลขคิว | User |
-| `GET` | `/api/queues/:queueNumber` | ดูสถานะคิว | User |
-| `GET` | `/api/queues/history` | ประวัติการจองทั้งหมด | User |
-| `PATCH` | `/api/queues/:id/cancel` | ยกเลิกคิว | User |
+1. เปิด Postman
+2. Import file
+3. ตั้ง Base URL:
 
-### Queue Management Module (4 endpoints)
-> หมายเหตุ: endpoint ชุดนี้อยู่ในงานของ `feature/queue-management` และยังไม่ถูกรวมใน branch `feature/queue-booking`
-
-### Notification Module (4 endpoints)
-| Method | Endpoint | คำอธิบาย | Role |
-|--------|----------|----------|------|
-| `GET` | `/api/notifications` | ดูแจ้งเตือนทั้งหมด | User |
-| `PATCH` | `/api/notifications/:id/read` | ทำเครื่องหมายว่าอ่านแล้ว | User |
-| `DELETE` | `/api/notifications/:id` | ลบแจ้งเตือน | User |
-| `POST` | `/api/notifications/send` | สร้างการแจ้งเตือนให้ผู้ใช้ที่ล็อกอินอยู่ | User |
+```
+http://localhost:3000
+```
 
 ---
 
-## วิธีการติดตั้งและรัน
+## 🐳 Docker & DockerHub
 
-### Environment Variables
+### 🔹 Run ด้วย Docker
 
-สร้างไฟล์ `.env` ที่ root:
+```
+docker-compose up --build
+```
 
-```env
+จะรัน:
+
+* Backend (Go API)
+* PostgreSQL Database
+
+---
+
+### 🔹 DockerHub
+
+Docker image จะถูก build และ push อัตโนมัติจาก CI/CD
+
+```
+docker pull <your-dockerhub-username>/qflow:latest
+```
+
+---
+
+## 🔄 CI/CD (GitHub Actions)
+
+Pipeline ทำงานอัตโนมัติเมื่อ push code:
+
+### Steps:
+
+1. Run Unit Tests
+2. Build Docker Image
+3. Push Image ไป DockerHub
+
+### Example Workflow
+
+```yaml
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [develop, main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.22'
+
+      - name: Install dependencies
+        run: go mod tidy
+
+      - name: Run tests
+        run: go test ./...
+
+      - name: Build Docker image
+        run: docker build -t qflow .
+
+      - name: Login to DockerHub
+        run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
+
+      - name: Push image
+        run: |
+          docker tag qflow ${{ secrets.DOCKER_USERNAME }}/qflow:latest
+          docker push ${{ secrets.DOCKER_USERNAME }}/qflow:latest
+```
+
+---
+
+## 🛠 Installation
+
+### 1. Clone Project
+
+```
+git clone <repo-url>
+cd QFlow
+```
+
+---
+
+### 2. Setup Environment
+
+สร้างไฟล์ `.env`
+
+```
 PORT=3000
-DATABASE_URL=postgres://user:password@localhost:5432/qflow
-JWT_SECRET=
+DATABASE_URL=postgres://user:password@db:5432/qflow
+JWT_SECRET=your-super-secret-key
+
 BOOTSTRAP_ADMIN_PHONE=
-BOOTSTRAP_ADMIN_NAME=Bootstrap Admin
+BOOTSTRAP_ADMIN_NAME=Admin
+
 BOOTSTRAP_PROVIDER_PHONE=
-BOOTSTRAP_PROVIDER_NAME=Bootstrap Provider
+BOOTSTRAP_PROVIDER_NAME=Provider
 ```
 
-`JWT_SECRET` ต้องตั้งเป็นค่าสุ่มจริงที่ยาวพอ และต้องไม่เป็นค่า default เช่น `secret` หรือ `your-secret-key-here` เพราะระบบจะไม่ start ถ้าใช้ค่าที่ไม่ปลอดภัย
+---
 
-ถ้าต้องทดสอบ endpoint ที่ต้องใช้ role `admin` หรือ `provider` ให้กำหนด `BOOTSTRAP_ADMIN_PHONE` หรือ `BOOTSTRAP_PROVIDER_PHONE` ก่อน start app จากนั้นเรียก `/api/auth/request-otp` และ `/api/auth/verify-otp` ด้วยเบอร์นั้นเพื่อรับ JWT ที่มี role ตามที่ bootstrap ไว้
+### 3. Run ด้วย Go
 
-### รันด้วย Go
-
-```bash
+```
+go mod tidy
 go run main.go
 ```
 
-Server จะรันที่ `http://localhost:3000`
+---
 
-### รันด้วย Docker
+### 4. Run ด้วย Docker (แนะนำ)
 
-```bash
-JWT_SECRET=replace-with-a-real-random-secret docker-compose up --build
 ```
-
-หรือกำหนด `JWT_SECRET` ในไฟล์ `.env` ก่อน แล้วรัน:
-
-```bash
 docker-compose up --build
 ```
 
 ---
 
-## Git Workflow
+## 🧪 Testing
+
+### Run Unit Test
 
 ```
-main        ← final version (merge จาก develop เมื่อเสร็จสิ้น)
-develop     ← รวมงานจากทุก feature branch
-feature/*   ← พัฒนาแต่ละ feature
+go test ./...
 ```
 
-1. แต่ละคน checkout จาก `develop` ไปยัง `feature/<feature-name>`
-2. พัฒนาและ commit อย่างสม่ำเสมอ
-3. เปิด Pull Request เข้า `develop`
-4. รอ review จากเพื่อนในกลุ่มก่อน merge
+มี test ครอบคลุม:
+
+* Service Layer
+* Handler Layer
+* Repository Layer
+
+---
+
+## 🔐 Authentication Flow
+
+1. POST /api/auth/request-otp
+2. POST /api/auth/verify-otp → ได้ JWT
+3. ใช้ JWT ใน Header:
+
+```
+Authorization: Bearer <token>
+```
+
+---
+
+## 📡 API Modules
+
+### Auth (5 endpoints)
+
+* Request OTP
+* Verify OTP
+* Register
+* Get Profile
+* Update Profile
+
+---
+
+### Category (5 endpoints)
+
+* CRUD Category
+
+---
+
+### Provider & Zone (5 endpoints)
+
+* Create provider
+* Manage zone
+
+---
+
+### Queue Booking (4 endpoints)
+
+* Book queue
+* Check status
+* History
+* Cancel
+
+---
+
+### Queue Management (4 endpoints)
+
+* Call queue
+* Skip queue
+* Complete queue
+
+---
+
+### Notification (4 endpoints)
+
+* Get notifications
+* Mark as read
+* Delete
+* Send
+
+---
+
+## 👥 Git Workflow
+
+```
+main        # production
+develop     # integration
+feature/*   # feature branches
+```
+
+### Flow:
+
+1. checkout จาก develop
+2. สร้าง feature branch
+3. พัฒนา + commit
+4. เปิด Pull Request → develop
+5. review + merge
+
+---
+
+## 💡 Highlights
+
+* Clean Architecture (Refactored)
+* Modular Design (6 Modules)
+* Unit Test Coverage
+* Dockerized Application
+* Swagger API Docs
+* Postman Collection
+* CI/CD Pipeline (GitHub Actions)
+* DockerHub Deployment Ready
+
+---
+
+## 📌 Notes
+
+* ต้องตั้ง `JWT_SECRET` เป็นค่าที่ปลอดภัย
+* ต้องมี Docker ติดตั้งก่อนใช้งาน docker-compose
+* ใช้ Swagger หรือ Postman สำหรับทดสอบ API
+
+---
+
+## 👨‍💻 Contributors
+
+| Name                      | Module           |
+| ------------------------- | ---------------- |
+| กิตติธัช เด่นสกุลประเสริฐ | Auth             |
+| พิรญาณ์ เอนอ่อน           | Category         |
+| ณัฏฐ์ ศรีสุวรรณกุล        | Provider & Zone  |
+| ธนกฤต พิบูลย์สวัสดิ์      | Queue Booking    |
+| พชร พรพงศ์                | Queue Management |
+| กิตติภณ คำนวล             | Notification     |
+
+---
+
+## 🏁 Conclusion
+
+QFlow เป็นระบบ Queue Management ที่ออกแบบให้:
+
+* ใช้งานได้จริง
+* โครงสร้างดี (Clean Architecture)
+* รองรับการ deploy จริง (Docker + CI/CD)
+* มีเครื่องมือครบ (Swagger + Postman)
+
+🚀 พร้อมต่อยอดสู่ production system
