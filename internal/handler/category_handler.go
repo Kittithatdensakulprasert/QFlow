@@ -137,4 +137,3 @@ func (h *CategoryHandler) DeleteCategory(c *gin.Context) {
 
 	c.Status(http.StatusNoContent)
 }
-
