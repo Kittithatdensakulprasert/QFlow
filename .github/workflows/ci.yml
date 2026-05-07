@@ -85,3 +85,123 @@ jobs:
           format: table
           exit-code: "1"
           severity: MEDIUM,HIGH,CRITICAL
+
+  integration-test:
+    name: Integration Test (Postman)
+    runs-on: ubuntu-latest
+    needs: test-and-quality
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: qflow
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d qflow"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      PORT: 3000
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/qflow?sslmode=disable
+      JWT_SECRET: ci-integration-test-secret-key-32chars
+      BOOTSTRAP_ADMIN_PHONE: "0800000001"
+      BOOTSTRAP_ADMIN_NAME: CI Admin
+      BOOTSTRAP_PROVIDER_PHONE: "0800000002"
+      BOOTSTRAP_PROVIDER_NAME: CI Provider
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Build app
+        run: go build -o qflow ./main.go
+
+      - name: Start app
+        run: ./qflow &
+
+      - name: Wait for app to be ready
+        run: |
+          for i in $(seq 1 20); do
+            curl -sf http://localhost:3000/api/categories && echo "App ready" && break
+            echo "Waiting... ($i)"
+            sleep 2
+          done
+
+      - name: Get admin token via DB OTP
+        run: |
+          # Request OTP
+          curl -sf -X POST http://localhost:3000/api/auth/request-otp \
+            -H "Content-Type: application/json" \
+            -d '{"phone":"0800000001"}' > /dev/null
+          # Read OTP from DB
+          ADMIN_OTP=$(PGPASSWORD=postgres psql -h localhost -U postgres -d qflow -t -c \
+            "SELECT code FROM otps WHERE phone='0800000001' AND used=false ORDER BY created_at DESC LIMIT 1;" | tr -d ' ')
+          echo "Admin OTP: $ADMIN_OTP"
+          # Verify OTP → get token
+          ADMIN_TOKEN=$(curl -sf -X POST http://localhost:3000/api/auth/verify-otp \
+            -H "Content-Type: application/json" \
+            -d "{\"phone\":\"0800000001\",\"code\":\"$ADMIN_OTP\"}" | python3 -c "import sys,json; print(json.load(sys.stdin)['token'])")
+          echo "ADMIN_TOKEN=$ADMIN_TOKEN" >> $GITHUB_ENV
+
+      - name: Get provider token via DB OTP
+        run: |
+          curl -sf -X POST http://localhost:3000/api/auth/request-otp \
+            -H "Content-Type: application/json" \
+            -d '{"phone":"0800000002"}' > /dev/null
+          PROVIDER_OTP=$(PGPASSWORD=postgres psql -h localhost -U postgres -d qflow -t -c \
+            "SELECT code FROM otps WHERE phone='0800000002' AND used=false ORDER BY created_at DESC LIMIT 1;" | tr -d ' ')
+          PROVIDER_TOKEN=$(curl -sf -X POST http://localhost:3000/api/auth/verify-otp \
+            -H "Content-Type: application/json" \
+            -d "{\"phone\":\"0800000002\",\"code\":\"$PROVIDER_OTP\"}" | python3 -c "import sys,json; print(json.load(sys.stdin)['token'])")
+          echo "PROVIDER_TOKEN=$PROVIDER_TOKEN" >> $GITHUB_ENV
+
+      - name: Get user token via DB OTP
+        run: |
+          curl -sf -X POST http://localhost:3000/api/auth/request-otp \
+            -H "Content-Type: application/json" \
+            -d '{"phone":"0800000003"}' > /dev/null
+          USER_OTP=$(PGPASSWORD=postgres psql -h localhost -U postgres -d qflow -t -c \
+            "SELECT code FROM otps WHERE phone='0800000003' AND used=false ORDER BY created_at DESC LIMIT 1;" | tr -d ' ')
+          USER_TOKEN=$(curl -sf -X POST http://localhost:3000/api/auth/verify-otp \
+            -H "Content-Type: application/json" \
+            -d "{\"phone\":\"0800000003\",\"code\":\"$USER_OTP\"}" | python3 -c "import sys,json; print(json.load(sys.stdin)['token'])")
+          echo "USER_TOKEN=$USER_TOKEN" >> $GITHUB_ENV
+
+      - name: Install Newman
+        run: npm install -g newman
+
+      - name: Run Postman collection (folders 04-10)
+        run: |
+          newman run postman/qflow_api.json \
+            --folder "04 Category" \
+            --folder "05 Provider & Zone" \
+            --folder "06 Queue - Complete Flow" \
+            --folder "07 Queue - Skip Flow" \
+            --folder "08 Queue - Cancel Flow" \
+            --folder "09 Notification" \
+            --folder "10 Cleanup / Final State" \
+            --env-var "base_url=http://localhost:3000/api" \
+            --env-var "admin_token=${{ env.ADMIN_TOKEN }}" \
+            --env-var "provider_token=${{ env.PROVIDER_TOKEN }}" \
+            --env-var "user_token=${{ env.USER_TOKEN }}" \
+            --reporters cli,junit \
+            --reporter-junit-export newman-report.xml
+
+      - name: Upload Newman report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: newman-report
+          path: newman-report.xml
