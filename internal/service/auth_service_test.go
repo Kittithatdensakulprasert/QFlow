@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"testing"
 	"time"
@@ -27,7 +28,7 @@ func newMockAuthRepository() *mockAuthRepository {
 	}
 }
 
-func (m *mockAuthRepository) CreateOTP(phone string) (*domain.OTP, error) {
+func (m *mockAuthRepository) CreateOTP(_ context.Context, phone string) (*domain.OTP, error) {
 	if m.createError != nil {
 		return nil, m.createError
 	}
@@ -41,7 +42,7 @@ func (m *mockAuthRepository) CreateOTP(phone string) (*domain.OTP, error) {
 	return m.otp, nil
 }
 
-func (m *mockAuthRepository) FindValidOTP(phone, code string) (*domain.OTP, error) {
+func (m *mockAuthRepository) FindValidOTP(_ context.Context, phone, code string) (*domain.OTP, error) {
 	if m.findError != nil {
 		return nil, m.findError
 	}
@@ -51,7 +52,7 @@ func (m *mockAuthRepository) FindValidOTP(phone, code string) (*domain.OTP, erro
 	return m.otp, nil
 }
 
-func (m *mockAuthRepository) MarkOTPAsUsed(otpID uint) error {
+func (m *mockAuthRepository) MarkOTPAsUsed(_ context.Context, otpID uint) error {
 	if m.otpUsed {
 		return errors.New("OTP has already been used or does not exist")
 	}
@@ -62,7 +63,7 @@ func (m *mockAuthRepository) MarkOTPAsUsed(otpID uint) error {
 	return errors.New("OTP has already been used or does not exist")
 }
 
-func (m *mockAuthRepository) DeleteExpiredOTPs(now time.Time) (int64, error) {
+func (m *mockAuthRepository) DeleteExpiredOTPs(_ context.Context, now time.Time) (int64, error) {
 	if m.otp != nil && !m.otp.ExpiresAt.After(now) {
 		m.otp = nil
 		return 1, nil
@@ -70,14 +71,14 @@ func (m *mockAuthRepository) DeleteExpiredOTPs(now time.Time) (int64, error) {
 	return 0, nil
 }
 
-func (m *mockAuthRepository) FindUserByPhone(phone string) (*domain.User, error) {
+func (m *mockAuthRepository) FindUserByPhone(_ context.Context, phone string) (*domain.User, error) {
 	if user, exists := m.users[phone]; exists {
 		return user, nil
 	}
 	return nil, errors.New("user not found")
 }
 
-func (m *mockAuthRepository) CreateUser(user *domain.User) error {
+func (m *mockAuthRepository) CreateUser(_ context.Context, user *domain.User) error {
 	if m.createUserErr != nil {
 		return m.createUserErr
 	}
@@ -87,7 +88,7 @@ func (m *mockAuthRepository) CreateUser(user *domain.User) error {
 	return nil
 }
 
-func (m *mockAuthRepository) UpdateUser(user *domain.User) error {
+func (m *mockAuthRepository) UpdateUser(_ context.Context, user *domain.User) error {
 	if m.updateUserErr != nil {
 		return m.updateUserErr
 	}
@@ -96,7 +97,7 @@ func (m *mockAuthRepository) UpdateUser(user *domain.User) error {
 	return nil
 }
 
-func (m *mockAuthRepository) FindUserByID(id uint) (*domain.User, error) {
+func (m *mockAuthRepository) FindUserByID(_ context.Context, id uint) (*domain.User, error) {
 	if user, exists := m.usersByID[id]; exists {
 		return user, nil
 	}
@@ -123,7 +124,7 @@ func TestAuthService_RequestOTP(t *testing.T) {
 
 			jwtManager := jwt.NewJWTManager("test-secret-key")
 			service := NewAuthService(mock, jwtManager)
-			otp, err := service.RequestOTP(tt.phone)
+			otp, err := service.RequestOTP(context.Background(), tt.phone)
 
 			if tt.wantErr {
 				if err == nil {
@@ -182,7 +183,7 @@ func TestAuthService_VerifyOTP(t *testing.T) {
 
 			jwtManager := jwt.NewJWTManager("test-secret-key")
 			service := NewAuthService(mock, jwtManager)
-			user, token, err := service.VerifyOTP(tt.phone, tt.code)
+			user, token, err := service.VerifyOTP(context.Background(), tt.phone, tt.code)
 
 			if tt.wantErr {
 				if err == nil {
@@ -250,7 +251,7 @@ func TestAuthService_RegisterUser(t *testing.T) {
 
 			jwtManager := jwt.NewJWTManager("test-secret-key")
 			service := NewAuthService(mock, jwtManager)
-			user, token, err := service.RegisterUser(tt.phone, tt.userName, tt.role, "123456")
+			user, token, err := service.RegisterUser(context.Background(), tt.phone, tt.userName, tt.role, "123456")
 
 			if tt.wantErr {
 				if err == nil {
@@ -315,7 +316,7 @@ func TestAuthService_GetUserProfile(t *testing.T) {
 
 			jwtManager := jwt.NewJWTManager("test-secret-key")
 			service := NewAuthService(mock, jwtManager)
-			user, err := service.GetUserProfile(tt.userID)
+			user, err := service.GetUserProfile(context.Background(), tt.userID)
 
 			if tt.wantErr {
 				if err == nil {
@@ -378,7 +379,7 @@ func TestAuthService_UpdateUserProfile(t *testing.T) {
 
 			jwtManager := jwt.NewJWTManager("test-secret-key")
 			service := NewAuthService(mock, jwtManager)
-			user, err := service.UpdateUserProfile(tt.userID, tt.userName, tt.role)
+			user, err := service.UpdateUserProfile(context.Background(), tt.userID, tt.userName, tt.role)
 
 			if tt.wantErr {
 				if err == nil {

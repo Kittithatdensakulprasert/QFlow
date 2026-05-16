@@ -2,6 +2,7 @@ package handler
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -18,7 +19,7 @@ type mockQueueService struct {
 	err    error
 }
 
-func (m *mockQueueService) BookQueue(userID, zoneID uint) (*domain.Queue, error) {
+func (m *mockQueueService) BookQueue(_ context.Context, userID, zoneID uint) (*domain.Queue, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -33,7 +34,7 @@ func (m *mockQueueService) BookQueue(userID, zoneID uint) (*domain.Queue, error)
 	return &queue, nil
 }
 
-func (m *mockQueueService) GetQueueHistory(userID uint) ([]domain.Queue, error) {
+func (m *mockQueueService) GetQueueHistory(_ context.Context, userID uint) ([]domain.Queue, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -58,7 +59,7 @@ func (m *mockQueueService) GetQueue(queueNumber int) (*domain.Queue, error) {
 	return nil, service.ErrQueueNotFound
 }
 
-func (m *mockQueueService) CancelQueue(id, userID uint) error {
+func (m *mockQueueService) CancelQueue(_ context.Context, id, userID uint) error {
 	if m.err != nil {
 		return m.err
 	}
@@ -71,7 +72,7 @@ func (m *mockQueueService) CancelQueue(id, userID uint) error {
 	return service.ErrQueueNotFound
 }
 
-func (m *mockQueueService) GetQueuesByZone(zoneID uint) ([]domain.Queue, error) {
+func (m *mockQueueService) GetQueuesByZone(_ context.Context, zoneID uint) ([]domain.Queue, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -84,7 +85,7 @@ func (m *mockQueueService) GetQueuesByZone(zoneID uint) ([]domain.Queue, error) 
 	return result, nil
 }
 
-func (m *mockQueueService) CallQueue(id uint) (*domain.Queue, error) {
+func (m *mockQueueService) CallQueue(_ context.Context, id uint) (*domain.Queue, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -97,7 +98,7 @@ func (m *mockQueueService) CallQueue(id uint) (*domain.Queue, error) {
 	return nil, service.ErrQueueNotFound
 }
 
-func (m *mockQueueService) CompleteQueue(id uint) (*domain.Queue, error) {
+func (m *mockQueueService) CompleteQueue(_ context.Context, id uint) (*domain.Queue, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -110,7 +111,7 @@ func (m *mockQueueService) CompleteQueue(id uint) (*domain.Queue, error) {
 	return nil, service.ErrQueueNotFound
 }
 
-func (m *mockQueueService) SkipQueue(id uint) (*domain.Queue, error) {
+func (m *mockQueueService) SkipQueue(_ context.Context, id uint) (*domain.Queue, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -123,7 +124,7 @@ func (m *mockQueueService) SkipQueue(id uint) (*domain.Queue, error) {
 	return nil, service.ErrQueueNotFound
 }
 
-func (m *mockQueueService) GetQueueByNumber(queueNumber int, userID uint) (*domain.Queue, error) {
+func (m *mockQueueService) GetQueueByNumber(_ context.Context, queueNumber int, userID uint) (*domain.Queue, error) {
 	if m.err != nil {
 		return nil, m.err
 	}

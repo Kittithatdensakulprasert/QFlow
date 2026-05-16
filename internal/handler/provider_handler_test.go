@@ -2,6 +2,7 @@ package handler
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -19,7 +20,7 @@ type mockProviderService struct {
 	err       error
 }
 
-func (m *mockProviderService) CreateProvider(name string, categoryID uint) (*domain.Provider, error) {
+func (m *mockProviderService) CreateProvider(_ context.Context, name string, categoryID uint) (*domain.Provider, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -31,14 +32,14 @@ func (m *mockProviderService) CreateProvider(name string, categoryID uint) (*dom
 	return &provider, nil
 }
 
-func (m *mockProviderService) GetProviders() ([]domain.Provider, error) {
+func (m *mockProviderService) GetProviders(_ context.Context) ([]domain.Provider, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
 	return m.providers, nil
 }
 
-func (m *mockProviderService) CreateZone(providerID uint, name string) (*domain.Zone, error) {
+func (m *mockProviderService) CreateZone(_ context.Context, providerID uint, name string) (*domain.Zone, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -53,7 +54,7 @@ func (m *mockProviderService) CreateZone(providerID uint, name string) (*domain.
 	return &zone, nil
 }
 
-func (m *mockProviderService) GetZones(providerID uint) ([]domain.Zone, error) {
+func (m *mockProviderService) GetZones(_ context.Context, providerID uint) ([]domain.Zone, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -66,7 +67,7 @@ func (m *mockProviderService) GetZones(providerID uint) ([]domain.Zone, error) {
 	return result, nil
 }
 
-func (m *mockProviderService) ToggleZone(id uint) (*domain.Zone, error) {
+func (m *mockProviderService) ToggleZone(_ context.Context, id uint) (*domain.Zone, error) {
 	if m.err != nil {
 		return nil, m.err
 	}

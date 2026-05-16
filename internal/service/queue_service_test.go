@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"testing"
 
@@ -36,7 +37,7 @@ func newMockRepo() *mockQueueRepo {
 	}
 }
 
-func (m *mockQueueRepo) FindZoneByID(id uint) (*domain.Zone, error) {
+func (m *mockQueueRepo) FindZoneByID(_ context.Context, id uint) (*domain.Zone, error) {
 	z, ok := m.zones[id]
 	if !ok {
 		return nil, gorm.ErrRecordNotFound
@@ -45,7 +46,7 @@ func (m *mockQueueRepo) FindZoneByID(id uint) (*domain.Zone, error) {
 	return &cp, nil
 }
 
-func (m *mockQueueRepo) CreateWithNextQueueNumber(q *domain.Queue) error {
+func (m *mockQueueRepo) CreateWithNextQueueNumber(_ context.Context, q *domain.Queue) error {
 	maxQN := 0
 	for _, existing := range m.queues {
 		if existing.QueueNumber > maxQN {
@@ -60,7 +61,7 @@ func (m *mockQueueRepo) CreateWithNextQueueNumber(q *domain.Queue) error {
 	return nil
 }
 
-func (m *mockQueueRepo) FindByQueueNumber(qn int) (*domain.Queue, error) {
+func (m *mockQueueRepo) FindByQueueNumber(_ context.Context, qn int) (*domain.Queue, error) {
 	for _, q := range m.queues {
 		if q.QueueNumber == qn {
 			cp := *q
@@ -70,7 +71,7 @@ func (m *mockQueueRepo) FindByQueueNumber(qn int) (*domain.Queue, error) {
 	return nil, ErrQueueNotFound
 }
 
-func (m *mockQueueRepo) FindByID(id uint) (*domain.Queue, error) {
+func (m *mockQueueRepo) FindByID(_ context.Context, id uint) (*domain.Queue, error) {
 	q, ok := m.queues[id]
 	if !ok {
 		return nil, ErrQueueNotFound
@@ -79,7 +80,7 @@ func (m *mockQueueRepo) FindByID(id uint) (*domain.Queue, error) {
 	return &cp, nil
 }
 
-func (m *mockQueueRepo) FindByUserID(userID uint) ([]domain.Queue, error) {
+func (m *mockQueueRepo) FindByUserID(_ context.Context, userID uint) ([]domain.Queue, error) {
 	var result []domain.Queue
 	for _, q := range m.queues {
 		if q.UserID == userID {
@@ -89,7 +90,7 @@ func (m *mockQueueRepo) FindByUserID(userID uint) ([]domain.Queue, error) {
 	return result, nil
 }
 
-func (m *mockQueueRepo) UpdateStatus(id uint, status string) error {
+func (m *mockQueueRepo) UpdateStatus(_ context.Context, id uint, status string) error {
 	q, ok := m.queues[id]
 	if !ok {
 		return ErrQueueNotFound
@@ -98,7 +99,7 @@ func (m *mockQueueRepo) UpdateStatus(id uint, status string) error {
 	return nil
 }
 
-func (m *mockQueueRepo) GetByZoneID(zoneID uint) ([]domain.Queue, error) {
+func (m *mockQueueRepo) GetByZoneID(_ context.Context, zoneID uint) ([]domain.Queue, error) {
 	var result []domain.Queue
 	for _, q := range m.queues {
 		if q.ZoneID == zoneID {
@@ -119,7 +120,7 @@ func newService() *queueService {
 func TestBookQueue_Success(t *testing.T) {
 	svc := newService()
 
-	queue, err := svc.BookQueue(77, 20)
+	queue, err := svc.BookQueue(context.Background(), 77, 20)
 
 	if err != nil {
 		t.Fatal("expected success, got:", err)
@@ -132,7 +133,7 @@ func TestBookQueue_Success(t *testing.T) {
 func TestBookQueue_ZoneNotFound(t *testing.T) {
 	svc := newService()
 
-	_, err := svc.BookQueue(77, 999)
+	_, err := svc.BookQueue(context.Background(), 77, 999)
 
 	if !errors.Is(err, ErrZoneNotFound) {
 		t.Fatalf("expected ErrZoneNotFound, got: %v", err)
@@ -144,7 +145,7 @@ func TestBookQueue_ZoneNotFound(t *testing.T) {
 func TestGetQueueByNumber_Success(t *testing.T) {
 	svc := newService()
 
-	queue, err := svc.GetQueueByNumber(1, 99)
+	queue, err := svc.GetQueueByNumber(context.Background(), 1, 99)
 
 	if err != nil {
 		t.Fatal("expected success, got:", err)
@@ -157,7 +158,7 @@ func TestGetQueueByNumber_Success(t *testing.T) {
 func TestGetQueueByNumber_NotFound(t *testing.T) {
 	svc := newService()
 
-	_, err := svc.GetQueueByNumber(999, 99)
+	_, err := svc.GetQueueByNumber(context.Background(), 999, 99)
 
 	if !errors.Is(err, ErrQueueNotFound) {
 		t.Fatalf("expected ErrQueueNotFound, got: %v", err)
@@ -167,7 +168,7 @@ func TestGetQueueByNumber_NotFound(t *testing.T) {
 func TestGetQueueByNumber_Forbidden(t *testing.T) {
 	svc := newService()
 
-	_, err := svc.GetQueueByNumber(5, 99) // queue 5 เป็นของ userID=88
+	_, err := svc.GetQueueByNumber(context.Background(), 5, 99) // queue 5 เป็นของ userID=88
 
 	if !errors.Is(err, ErrForbiddenQueue) {
 		t.Fatalf("expected ErrForbiddenQueue, got: %v", err)
@@ -179,7 +180,7 @@ func TestGetQueueByNumber_Forbidden(t *testing.T) {
 func TestCancelQueue_Success(t *testing.T) {
 	svc := newService()
 
-	err := svc.CancelQueue(1, 99)
+	err := svc.CancelQueue(context.Background(), 1, 99)
 
 	if err != nil {
 		t.Fatal("expected success, got:", err)
@@ -189,7 +190,7 @@ func TestCancelQueue_Success(t *testing.T) {
 func TestCancelQueue_NotOwner(t *testing.T) {
 	svc := newService()
 
-	err := svc.CancelQueue(5, 99) // queue 5 เป็นของ userID=88
+	err := svc.CancelQueue(context.Background(), 5, 99) // queue 5 เป็นของ userID=88
 
 	if !errors.Is(err, ErrForbiddenQueue) {
 		t.Fatalf("expected ErrForbiddenQueue, got: %v", err)
@@ -199,7 +200,7 @@ func TestCancelQueue_NotOwner(t *testing.T) {
 func TestCancelQueue_InvalidState_Completed(t *testing.T) {
 	svc := newService()
 
-	err := svc.CancelQueue(3, 99) // status=completed
+	err := svc.CancelQueue(context.Background(), 3, 99) // status=completed
 
 	if !errors.Is(err, ErrQueueFinalized) {
 		t.Fatalf("expected ErrQueueFinalized, got: %v", err)
@@ -209,7 +210,7 @@ func TestCancelQueue_InvalidState_Completed(t *testing.T) {
 func TestCancelQueue_InvalidState_Called(t *testing.T) {
 	svc := newService()
 
-	err := svc.CancelQueue(2, 99) // status=called
+	err := svc.CancelQueue(context.Background(), 2, 99) // status=called
 
 	if !errors.Is(err, ErrQueueFinalized) {
 		t.Fatalf("expected ErrQueueFinalized, got: %v", err)
@@ -219,7 +220,7 @@ func TestCancelQueue_InvalidState_Called(t *testing.T) {
 func TestCancelQueue_AlreadyCancelled(t *testing.T) {
 	svc := newService()
 
-	err := svc.CancelQueue(6, 99) // status=cancelled
+	err := svc.CancelQueue(context.Background(), 6, 99) // status=cancelled
 
 	if !errors.Is(err, ErrQueueCancelled) {
 		t.Fatalf("expected ErrQueueCancelled, got: %v", err)
@@ -229,7 +230,7 @@ func TestCancelQueue_AlreadyCancelled(t *testing.T) {
 func TestCancelQueue_NotFound(t *testing.T) {
 	svc := newService()
 
-	err := svc.CancelQueue(999, 99)
+	err := svc.CancelQueue(context.Background(), 999, 99)
 
 	if !errors.Is(err, ErrQueueNotFound) {
 		t.Fatalf("expected ErrQueueNotFound, got: %v", err)
@@ -241,7 +242,7 @@ func TestCancelQueue_NotFound(t *testing.T) {
 func TestCallQueue_Success(t *testing.T) {
 	svc := newService()
 
-	queue, err := svc.CallQueue(1)
+	queue, err := svc.CallQueue(context.Background(), 1)
 
 	if err != nil {
 		t.Fatal("expected no error, got:", err)
@@ -254,7 +255,7 @@ func TestCallQueue_Success(t *testing.T) {
 func TestCallQueue_AlreadyCalled(t *testing.T) {
 	svc := newService()
 
-	_, err := svc.CallQueue(2) // status=called
+	_, err := svc.CallQueue(context.Background(), 2) // status=called
 
 	if !errors.Is(err, domain.ErrQueueCannotBeCalled) {
 		t.Fatalf("expected ErrQueueCannotBeCalled, got: %v", err)
@@ -264,7 +265,7 @@ func TestCallQueue_AlreadyCalled(t *testing.T) {
 func TestCallQueue_Completed(t *testing.T) {
 	svc := newService()
 
-	_, err := svc.CallQueue(3) // status=completed
+	_, err := svc.CallQueue(context.Background(), 3) // status=completed
 
 	if !errors.Is(err, domain.ErrQueueCannotBeCalled) {
 		t.Fatalf("expected ErrQueueCannotBeCalled, got: %v", err)
@@ -274,7 +275,7 @@ func TestCallQueue_Completed(t *testing.T) {
 func TestCallQueue_NotFound(t *testing.T) {
 	svc := newService()
 
-	_, err := svc.CallQueue(999)
+	_, err := svc.CallQueue(context.Background(), 999)
 
 	if !errors.Is(err, ErrQueueNotFound) {
 		t.Fatalf("expected ErrQueueNotFound, got: %v", err)
@@ -286,7 +287,7 @@ func TestCallQueue_NotFound(t *testing.T) {
 func TestCompleteQueue_Success(t *testing.T) {
 	svc := newService()
 
-	queue, err := svc.CompleteQueue(2) // status=called
+	queue, err := svc.CompleteQueue(context.Background(), 2) // status=called
 
 	if err != nil {
 		t.Fatal("expected success, got:", err)
@@ -299,7 +300,7 @@ func TestCompleteQueue_Success(t *testing.T) {
 func TestCompleteQueue_WaitingQueue(t *testing.T) {
 	svc := newService()
 
-	_, err := svc.CompleteQueue(1) // status=waiting
+	_, err := svc.CompleteQueue(context.Background(), 1) // status=waiting
 
 	if !errors.Is(err, domain.ErrQueueCannotBeCompleted) {
 		t.Fatalf("expected ErrQueueCannotBeCompleted, got: %v", err)
@@ -309,7 +310,7 @@ func TestCompleteQueue_WaitingQueue(t *testing.T) {
 func TestCompleteQueue_SkippedQueue(t *testing.T) {
 	svc := newService()
 
-	_, err := svc.CompleteQueue(4) // status=skipped
+	_, err := svc.CompleteQueue(context.Background(), 4) // status=skipped
 
 	if !errors.Is(err, domain.ErrQueueCannotBeCompleted) {
 		t.Fatalf("expected ErrQueueCannotBeCompleted, got: %v", err)
@@ -319,7 +320,7 @@ func TestCompleteQueue_SkippedQueue(t *testing.T) {
 func TestCompleteQueue_NotFound(t *testing.T) {
 	svc := newService()
 
-	_, err := svc.CompleteQueue(999)
+	_, err := svc.CompleteQueue(context.Background(), 999)
 
 	if !errors.Is(err, ErrQueueNotFound) {
 		t.Fatalf("expected ErrQueueNotFound, got: %v", err)
@@ -331,7 +332,7 @@ func TestCompleteQueue_NotFound(t *testing.T) {
 func TestSkipQueue_WaitingSuccess(t *testing.T) {
 	svc := newService()
 
-	queue, err := svc.SkipQueue(1)
+	queue, err := svc.SkipQueue(context.Background(), 1)
 
 	if err != nil {
 		t.Fatal("expected success, got:", err)
@@ -344,7 +345,7 @@ func TestSkipQueue_WaitingSuccess(t *testing.T) {
 func TestSkipQueue_CalledSuccess(t *testing.T) {
 	svc := newService()
 
-	queue, err := svc.SkipQueue(2)
+	queue, err := svc.SkipQueue(context.Background(), 2)
 
 	if err != nil {
 		t.Fatal("expected success, got:", err)
@@ -357,7 +358,7 @@ func TestSkipQueue_CalledSuccess(t *testing.T) {
 func TestSkipQueue_CompletedFail(t *testing.T) {
 	svc := newService()
 
-	_, err := svc.SkipQueue(3) // status=completed
+	_, err := svc.SkipQueue(context.Background(), 3) // status=completed
 
 	if !errors.Is(err, domain.ErrQueueCannotBeSkipped) {
 		t.Fatalf("expected ErrQueueCannotBeSkipped, got: %v", err)
@@ -367,7 +368,7 @@ func TestSkipQueue_CompletedFail(t *testing.T) {
 func TestSkipQueue_CancelledFail(t *testing.T) {
 	svc := newService()
 
-	_, err := svc.SkipQueue(6) // status=cancelled
+	_, err := svc.SkipQueue(context.Background(), 6) // status=cancelled
 
 	if !errors.Is(err, domain.ErrQueueCannotBeSkipped) {
 		t.Fatalf("expected ErrQueueCannotBeSkipped, got: %v", err)
@@ -377,7 +378,7 @@ func TestSkipQueue_CancelledFail(t *testing.T) {
 func TestSkipQueue_NotFound(t *testing.T) {
 	svc := newService()
 
-	_, err := svc.SkipQueue(999)
+	_, err := svc.SkipQueue(context.Background(), 999)
 
 	if !errors.Is(err, ErrQueueNotFound) {
 		t.Fatalf("expected ErrQueueNotFound, got: %v", err)
@@ -389,7 +390,7 @@ func TestSkipQueue_NotFound(t *testing.T) {
 func TestGetQueuesByZone_WithQueues(t *testing.T) {
 	svc := newService()
 
-	queues, err := svc.GetQueuesByZone(10)
+	queues, err := svc.GetQueuesByZone(context.Background(), 10)
 
 	if err != nil {
 		t.Fatal("expected success, got:", err)
@@ -402,7 +403,7 @@ func TestGetQueuesByZone_WithQueues(t *testing.T) {
 func TestGetQueuesByZone_EmptyZone(t *testing.T) {
 	svc := newService()
 
-	queues, err := svc.GetQueuesByZone(999)
+	queues, err := svc.GetQueuesByZone(context.Background(), 999)
 
 	if err != nil {
 		t.Fatal("expected no error, got:", err)
@@ -417,7 +418,7 @@ func TestGetQueuesByZone_EmptyZone(t *testing.T) {
 func TestGetQueueHistory_Success(t *testing.T) {
 	svc := newService()
 
-	queues, err := svc.GetQueueHistory(99)
+	queues, err := svc.GetQueueHistory(context.Background(), 99)
 
 	if err != nil {
 		t.Fatal("expected success, got:", err)
@@ -430,7 +431,7 @@ func TestGetQueueHistory_Success(t *testing.T) {
 func TestGetQueueHistory_NoHistory(t *testing.T) {
 	svc := newService()
 
-	queues, err := svc.GetQueueHistory(777)
+	queues, err := svc.GetQueueHistory(context.Background(), 777)
 
 	if err != nil {
 		t.Fatal("expected no error, got:", err)

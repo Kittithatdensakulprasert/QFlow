@@ -1,6 +1,7 @@
 package service_test
 
 import (
+	"context"
 	"errors"
 	"qflow/internal/domain"
 	"qflow/internal/service"
@@ -31,7 +32,7 @@ func newMockProviderRepo() *mockProviderRepo {
 	}
 }
 
-func (m *mockProviderRepo) CreateProvider(provider *domain.Provider) error {
+func (m *mockProviderRepo) CreateProvider(_ context.Context, provider *domain.Provider) error {
 	if m.repoErr != nil {
 		return m.repoErr
 	}
@@ -41,7 +42,7 @@ func (m *mockProviderRepo) CreateProvider(provider *domain.Provider) error {
 	return nil
 }
 
-func (m *mockProviderRepo) FindProviders() ([]domain.Provider, error) {
+func (m *mockProviderRepo) FindProviders(_ context.Context) ([]domain.Provider, error) {
 	if m.repoErr != nil {
 		return nil, m.repoErr
 	}
@@ -52,7 +53,7 @@ func (m *mockProviderRepo) FindProviders() ([]domain.Provider, error) {
 	return result, nil
 }
 
-func (m *mockProviderRepo) FindCategoryByID(id uint) (*domain.Category, error) {
+func (m *mockProviderRepo) FindCategoryByID(_ context.Context, id uint) (*domain.Category, error) {
 	if m.repoErr != nil {
 		return nil, m.repoErr
 	}
@@ -63,7 +64,7 @@ func (m *mockProviderRepo) FindCategoryByID(id uint) (*domain.Category, error) {
 	return &category, nil
 }
 
-func (m *mockProviderRepo) FindProviderByID(id uint) (*domain.Provider, error) {
+func (m *mockProviderRepo) FindProviderByID(_ context.Context, id uint) (*domain.Provider, error) {
 	if m.repoErr != nil {
 		return nil, m.repoErr
 	}
@@ -74,7 +75,7 @@ func (m *mockProviderRepo) FindProviderByID(id uint) (*domain.Provider, error) {
 	return &provider, nil
 }
 
-func (m *mockProviderRepo) CreateZone(zone *domain.Zone) error {
+func (m *mockProviderRepo) CreateZone(_ context.Context, zone *domain.Zone) error {
 	if m.repoErr != nil {
 		return m.repoErr
 	}
@@ -84,7 +85,7 @@ func (m *mockProviderRepo) CreateZone(zone *domain.Zone) error {
 	return nil
 }
 
-func (m *mockProviderRepo) FindZonesByProviderID(providerID uint) ([]domain.Zone, error) {
+func (m *mockProviderRepo) FindZonesByProviderID(_ context.Context, providerID uint) ([]domain.Zone, error) {
 	if m.repoErr != nil {
 		return nil, m.repoErr
 	}
@@ -97,7 +98,7 @@ func (m *mockProviderRepo) FindZonesByProviderID(providerID uint) ([]domain.Zone
 	return result, nil
 }
 
-func (m *mockProviderRepo) FindZoneByID(id uint) (*domain.Zone, error) {
+func (m *mockProviderRepo) FindZoneByID(_ context.Context, id uint) (*domain.Zone, error) {
 	if m.repoErr != nil {
 		return nil, m.repoErr
 	}
@@ -108,7 +109,7 @@ func (m *mockProviderRepo) FindZoneByID(id uint) (*domain.Zone, error) {
 	return &zone, nil
 }
 
-func (m *mockProviderRepo) UpdateZone(zone *domain.Zone) error {
+func (m *mockProviderRepo) UpdateZone(_ context.Context, zone *domain.Zone) error {
 	if m.repoErr != nil {
 		return m.repoErr
 	}
@@ -116,7 +117,7 @@ func (m *mockProviderRepo) UpdateZone(zone *domain.Zone) error {
 	return nil
 }
 
-func (m *mockProviderRepo) CountQueuesByZoneID(zoneID uint) (int, error) {
+func (m *mockProviderRepo) CountQueuesByZoneID(_ context.Context, zoneID uint) (int, error) {
 	if m.repoErr != nil {
 		return 0, m.repoErr
 	}
@@ -130,7 +131,7 @@ func (m *mockProviderRepo) CountQueuesByZoneID(zoneID uint) (int, error) {
 	return count, nil
 }
 
-func (m *mockProviderRepo) CountQueuesByZoneIDs(zoneIDs []uint) (map[uint]int, error) {
+func (m *mockProviderRepo) CountQueuesByZoneIDs(_ context.Context, zoneIDs []uint) (map[uint]int, error) {
 	if m.repoErr != nil {
 		return nil, m.repoErr
 	}
@@ -152,7 +153,7 @@ func TestProviderServiceCreateProvider(t *testing.T) {
 	repo.categories[1] = domain.Category{ID: 1, Name: "Clinic"}
 	svc := service.NewProviderService(repo)
 
-	provider, err := svc.CreateProvider(" Bangkok Clinic ", 1)
+	provider, err := svc.CreateProvider(context.Background(), " Bangkok Clinic ", 1)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -165,7 +166,7 @@ func TestProviderServiceCreateProviderRequiresExistingCategory(t *testing.T) {
 	repo := newMockProviderRepo()
 	svc := service.NewProviderService(repo)
 
-	_, err := svc.CreateProvider("Bangkok Clinic", 99)
+	_, err := svc.CreateProvider(context.Background(), "Bangkok Clinic", 99)
 	if !errors.Is(err, service.ErrProviderCategoryNotFound) {
 		t.Fatalf("expected category not found error, got %v", err)
 	}
@@ -175,7 +176,7 @@ func TestProviderServiceCreateProviderRequiresName(t *testing.T) {
 	repo := newMockProviderRepo()
 	svc := service.NewProviderService(repo)
 
-	_, err := svc.CreateProvider(" ", 0)
+	_, err := svc.CreateProvider(context.Background(), " ", 0)
 	if !errors.Is(err, service.ErrProviderNameRequired) {
 		t.Fatalf("expected provider name required error, got %v", err)
 	}
@@ -185,7 +186,7 @@ func TestProviderServiceCreateZoneRequiresExistingProvider(t *testing.T) {
 	repo := newMockProviderRepo()
 	svc := service.NewProviderService(repo)
 
-	_, err := svc.CreateZone(99, "Counter A")
+	_, err := svc.CreateZone(context.Background(), 99, "Counter A")
 	if !errors.Is(err, service.ErrProviderNotFound) {
 		t.Fatalf("expected provider not found error, got %v", err)
 	}
@@ -194,15 +195,15 @@ func TestProviderServiceCreateZoneRequiresExistingProvider(t *testing.T) {
 func TestProviderServiceGetZonesCountsQueues(t *testing.T) {
 	repo := newMockProviderRepo()
 	svc := service.NewProviderService(repo)
-	provider, _ := svc.CreateProvider("Bangkok Clinic", 0)
-	zone, _ := svc.CreateZone(provider.ID, "Counter A")
+	provider, _ := svc.CreateProvider(context.Background(), "Bangkok Clinic", 0)
+	zone, _ := svc.CreateZone(context.Background(), provider.ID, "Counter A")
 	repo.queues = append(repo.queues,
 		domain.Queue{ID: 1, ZoneID: zone.ID},
 		domain.Queue{ID: 2, ZoneID: zone.ID},
 		domain.Queue{ID: 3, ZoneID: 999},
 	)
 
-	zones, err := svc.GetZones(provider.ID)
+	zones, err := svc.GetZones(context.Background(), provider.ID)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -223,9 +224,9 @@ func TestProviderServiceGetZonesCountsQueues(t *testing.T) {
 func TestProviderServiceGetZonesCountsQueuesInOneBatch(t *testing.T) {
 	repo := newMockProviderRepo()
 	svc := service.NewProviderService(repo)
-	provider, _ := svc.CreateProvider("Bangkok Clinic", 0)
-	zoneA, _ := svc.CreateZone(provider.ID, "Counter A")
-	zoneB, _ := svc.CreateZone(provider.ID, "Counter B")
+	provider, _ := svc.CreateProvider(context.Background(), "Bangkok Clinic", 0)
+	zoneA, _ := svc.CreateZone(context.Background(), provider.ID, "Counter A")
+	zoneB, _ := svc.CreateZone(context.Background(), provider.ID, "Counter B")
 	repo.queues = append(repo.queues,
 		domain.Queue{ID: 1, ZoneID: zoneA.ID},
 		domain.Queue{ID: 2, ZoneID: zoneA.ID},
@@ -233,7 +234,7 @@ func TestProviderServiceGetZonesCountsQueuesInOneBatch(t *testing.T) {
 		domain.Queue{ID: 4, ZoneID: 999},
 	)
 
-	zones, err := svc.GetZones(provider.ID)
+	zones, err := svc.GetZones(context.Background(), provider.ID)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -256,10 +257,10 @@ func TestProviderServiceGetZonesCountsQueuesInOneBatch(t *testing.T) {
 func TestProviderServiceToggleZone(t *testing.T) {
 	repo := newMockProviderRepo()
 	svc := service.NewProviderService(repo)
-	provider, _ := svc.CreateProvider("Bangkok Clinic", 0)
-	zone, _ := svc.CreateZone(provider.ID, "Counter A")
+	provider, _ := svc.CreateProvider(context.Background(), "Bangkok Clinic", 0)
+	zone, _ := svc.CreateZone(context.Background(), provider.ID, "Counter A")
 
-	updated, err := svc.ToggleZone(zone.ID)
+	updated, err := svc.ToggleZone(context.Background(), zone.ID)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
