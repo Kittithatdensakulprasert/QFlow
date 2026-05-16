@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"context"
 	"time"
 )
 
@@ -8,7 +9,7 @@ type User struct {
 	ID        uint      `gorm:"primaryKey" json:"id"`
 	Phone     string    `gorm:"uniqueIndex;not null" json:"phone"`
 	Name      string    `json:"name"`
-	Role      string    `gorm:"default:user" json:"role"` // user, provider, admin
+	Role      string    `gorm:"default:user" json:"role"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
@@ -23,20 +24,20 @@ type OTP struct {
 }
 
 type AuthRepository interface {
-	CreateOTP(phone string) (*OTP, error)
-	FindValidOTP(phone, code string) (*OTP, error)
-	MarkOTPAsUsed(otpID uint) error
-	DeleteExpiredOTPs(now time.Time) (int64, error)
-	FindUserByPhone(phone string) (*User, error)
-	CreateUser(user *User) error
-	UpdateUser(user *User) error
-	FindUserByID(id uint) (*User, error)
+	CreateOTP(ctx context.Context, phone string) (*OTP, error)
+	FindValidOTP(ctx context.Context, phone, code string) (*OTP, error)
+	MarkOTPAsUsed(ctx context.Context, otpID uint) error
+	DeleteExpiredOTPs(ctx context.Context, now time.Time) (int64, error)
+	FindUserByPhone(ctx context.Context, phone string) (*User, error)
+	CreateUser(ctx context.Context, user *User) error
+	UpdateUser(ctx context.Context, user *User) error
+	FindUserByID(ctx context.Context, id uint) (*User, error)
 }
 
 type AuthService interface {
-	RequestOTP(phone string) (*OTP, error)
-	VerifyOTP(phone, code string) (*User, string, error)
-	RegisterUser(phone, name, role, otpCode string) (*User, string, error)
-	GetUserProfile(userID uint) (*User, error)
-	UpdateUserProfile(userID uint, name, role string) (*User, error)
+	RequestOTP(ctx context.Context, phone string) (*OTP, error)
+	VerifyOTP(ctx context.Context, phone, code string) (*User, string, error)
+	RegisterUser(ctx context.Context, phone, name, role, otpCode string) (*User, string, error)
+	GetUserProfile(ctx context.Context, userID uint) (*User, error)
+	UpdateUserProfile(ctx context.Context, userID uint, name, role string) (*User, error)
 }
