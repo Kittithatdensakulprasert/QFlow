@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"qflow/internal/domain"
 	"strings"
@@ -24,7 +25,7 @@ func NewProviderService(repo domain.ProviderRepository) domain.ProviderService {
 	return &providerService{repo: repo}
 }
 
-func (s *providerService) CreateProvider(name string, categoryID uint) (*domain.Provider, error) {
+func (s *providerService) CreateProvider(ctx context.Context, name string, categoryID uint) (*domain.Provider, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
 		return nil, ErrProviderNameRequired
@@ -32,7 +33,7 @@ func (s *providerService) CreateProvider(name string, categoryID uint) (*domain.
 
 	provider := &domain.Provider{Name: name}
 	if categoryID > 0 {
-		if _, err := s.repo.FindCategoryByID(categoryID); err != nil {
+		if _, err := s.repo.FindCategoryByID(ctx, categoryID); err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				return nil, ErrProviderCategoryNotFound
 			}
@@ -40,24 +41,24 @@ func (s *providerService) CreateProvider(name string, categoryID uint) (*domain.
 		}
 		provider.CategoryID = &categoryID
 	}
-	if err := s.repo.CreateProvider(provider); err != nil {
+	if err := s.repo.CreateProvider(ctx, provider); err != nil {
 		return nil, err
 	}
 
 	return provider, nil
 }
 
-func (s *providerService) GetProviders() ([]domain.Provider, error) {
-	return s.repo.FindProviders()
+func (s *providerService) GetProviders(ctx context.Context) ([]domain.Provider, error) {
+	return s.repo.FindProviders(ctx)
 }
 
-func (s *providerService) CreateZone(providerID uint, name string) (*domain.Zone, error) {
+func (s *providerService) CreateZone(ctx context.Context, providerID uint, name string) (*domain.Zone, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
 		return nil, ErrZoneNameRequired
 	}
 
-	if _, err := s.repo.FindProviderByID(providerID); err != nil {
+	if _, err := s.repo.FindProviderByID(ctx, providerID); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrProviderNotFound
 		}
@@ -69,11 +70,11 @@ func (s *providerService) CreateZone(providerID uint, name string) (*domain.Zone
 		Name:       name,
 		IsOpen:     true,
 	}
-	if err := s.repo.CreateZone(zone); err != nil {
+	if err := s.repo.CreateZone(ctx, zone); err != nil {
 		return nil, err
 	}
 
-	count, err := s.repo.CountQueuesByZoneID(zone.ID)
+	count, err := s.repo.CountQueuesByZoneID(ctx, zone.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -82,15 +83,15 @@ func (s *providerService) CreateZone(providerID uint, name string) (*domain.Zone
 	return zone, nil
 }
 
-func (s *providerService) GetZones(providerID uint) ([]domain.Zone, error) {
-	if _, err := s.repo.FindProviderByID(providerID); err != nil {
+func (s *providerService) GetZones(ctx context.Context, providerID uint) ([]domain.Zone, error) {
+	if _, err := s.repo.FindProviderByID(ctx, providerID); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrProviderNotFound
 		}
 		return nil, err
 	}
 
-	zones, err := s.repo.FindZonesByProviderID(providerID)
+	zones, err := s.repo.FindZonesByProviderID(ctx, providerID)
 	if err != nil {
 		return nil, err
 	}
@@ -100,7 +101,7 @@ func (s *providerService) GetZones(providerID uint) ([]domain.Zone, error) {
 		zoneIDs = append(zoneIDs, zones[i].ID)
 	}
 
-	queueCounts, err := s.repo.CountQueuesByZoneIDs(zoneIDs)
+	queueCounts, err := s.repo.CountQueuesByZoneIDs(ctx, zoneIDs)
 	if err != nil {
 		return nil, err
 	}
@@ -112,8 +113,8 @@ func (s *providerService) GetZones(providerID uint) ([]domain.Zone, error) {
 	return zones, nil
 }
 
-func (s *providerService) ToggleZone(id uint) (*domain.Zone, error) {
-	zone, err := s.repo.FindZoneByID(id)
+func (s *providerService) ToggleZone(ctx context.Context, id uint) (*domain.Zone, error) {
+	zone, err := s.repo.FindZoneByID(ctx, id)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrProviderZoneNotFound
@@ -122,11 +123,11 @@ func (s *providerService) ToggleZone(id uint) (*domain.Zone, error) {
 	}
 
 	zone.IsOpen = !zone.IsOpen
-	if err := s.repo.UpdateZone(zone); err != nil {
+	if err := s.repo.UpdateZone(ctx, zone); err != nil {
 		return nil, err
 	}
 
-	count, err := s.repo.CountQueuesByZoneID(zone.ID)
+	count, err := s.repo.CountQueuesByZoneID(ctx, zone.ID)
 	if err != nil {
 		return nil, err
 	}

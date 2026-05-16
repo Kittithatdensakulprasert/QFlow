@@ -36,7 +36,7 @@ func (h *QueueHandler) BookQueue(c *gin.Context) {
 		respondError(c, http.StatusUnauthorized, "UNAUTHORIZED", "authentication required")
 		return
 	}
-	queue, err := h.svc.BookQueue(userID, body.ZoneID)
+	queue, err := h.svc.BookQueue(c.Request.Context(), userID, body.ZoneID)
 	if err != nil {
 		switch {
 		case errors.Is(err, service.ErrInvalidUserID),
@@ -68,7 +68,7 @@ func (h *QueueHandler) GetHistory(c *gin.Context) {
 		respondError(c, http.StatusUnauthorized, "UNAUTHORIZED", "authentication required")
 		return
 	}
-	queues, err := h.svc.GetQueueHistory(userID)
+	queues, err := h.svc.GetQueueHistory(c.Request.Context(), userID)
 	if err != nil {
 		if errors.Is(err, service.ErrInvalidUserID) {
 			respondError(c, http.StatusBadRequest, "INVALID_INPUT", err.Error())
@@ -93,7 +93,7 @@ func (h *QueueHandler) GetQueue(c *gin.Context) {
 		respondError(c, http.StatusUnauthorized, "UNAUTHORIZED", "authentication required")
 		return
 	}
-	queue, err := h.svc.GetQueueByNumber(queueNumber, userID)
+	queue, err := h.svc.GetQueueByNumber(c.Request.Context(), queueNumber, userID)
 	if err != nil {
 		switch {
 		case errors.Is(err, service.ErrInvalidUserID):
@@ -124,7 +124,7 @@ func (h *QueueHandler) CancelQueue(c *gin.Context) {
 		respondError(c, http.StatusUnauthorized, "UNAUTHORIZED", "authentication required")
 		return
 	}
-	err = h.svc.CancelQueue(uint(id), userID)
+	err = h.svc.CancelQueue(c.Request.Context(), uint(id), userID)
 	if err != nil {
 		switch {
 		case errors.Is(err, service.ErrInvalidUserID):
@@ -154,7 +154,7 @@ func (h *QueueHandler) GetQueuesByZone(c *gin.Context) {
 		return
 	}
 
-	queues, err := h.svc.GetQueuesByZone(uint(zoneID))
+	queues, err := h.svc.GetQueuesByZone(c.Request.Context(), uint(zoneID))
 	if err != nil {
 		respondError(c, http.StatusInternalServerError, "INTERNAL_SERVER_ERROR", "internal server error")
 		return
@@ -171,7 +171,7 @@ func (h *QueueHandler) CallQueue(c *gin.Context) {
 		return
 	}
 
-	queue, err := h.svc.CallQueue(uint(id))
+	queue, err := h.svc.CallQueue(c.Request.Context(), uint(id))
 	if err != nil {
 		switch {
 		case errors.Is(err, service.ErrQueueNotFound):
@@ -195,7 +195,7 @@ func (h *QueueHandler) CompleteQueue(c *gin.Context) {
 		return
 	}
 
-	queue, err := h.svc.CompleteQueue(uint(id))
+	queue, err := h.svc.CompleteQueue(c.Request.Context(), uint(id))
 	if err != nil {
 		switch {
 		case errors.Is(err, service.ErrQueueNotFound):
@@ -219,7 +219,7 @@ func (h *QueueHandler) SkipQueue(c *gin.Context) {
 		return
 	}
 
-	queue, err := h.svc.SkipQueue(uint(id))
+	queue, err := h.svc.SkipQueue(c.Request.Context(), uint(id))
 	if err != nil {
 		switch {
 		case errors.Is(err, service.ErrQueueNotFound):

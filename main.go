@@ -64,14 +64,14 @@ func seedBootstrapUser(authRepo domain.AuthRepository, phone, name, role string)
 		return
 	}
 
-	user, err := authRepo.FindUserByPhone(phone)
+	user, err := authRepo.FindUserByPhone(context.Background(), phone)
 	if err != nil {
 		user = &domain.User{
 			Phone: phone,
 			Name:  name,
 			Role:  role,
 		}
-		if err := authRepo.CreateUser(user); err != nil {
+		if err := authRepo.CreateUser(context.Background(), user); err != nil {
 			log.Fatalf("failed to create bootstrap %s user: %v", role, err)
 		}
 		return
@@ -79,7 +79,7 @@ func seedBootstrapUser(authRepo domain.AuthRepository, phone, name, role string)
 
 	user.Name = name
 	user.Role = role
-	if err := authRepo.UpdateUser(user); err != nil {
+	if err := authRepo.UpdateUser(context.Background(), user); err != nil {
 		log.Fatalf("failed to update bootstrap %s user: %v", role, err)
 	}
 }
