@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"qflow/internal/domain"
 
 	"gorm.io/gorm"
@@ -14,64 +15,64 @@ func NewProviderRepository(db *gorm.DB) domain.ProviderRepository {
 	return &providerRepository{db: db}
 }
 
-func (r *providerRepository) CreateProvider(provider *domain.Provider) error {
-	return r.db.Create(provider).Error
+func (r *providerRepository) CreateProvider(ctx context.Context, provider *domain.Provider) error {
+	return r.db.WithContext(ctx).Create(provider).Error
 }
 
-func (r *providerRepository) FindProviders() ([]domain.Provider, error) {
+func (r *providerRepository) FindProviders(ctx context.Context) ([]domain.Provider, error) {
 	var providers []domain.Provider
-	err := r.db.Preload("Category").Order("id asc").Find(&providers).Error
+	err := r.db.WithContext(ctx).Preload("Category").Order("id asc").Find(&providers).Error
 	return providers, err
 }
 
-func (r *providerRepository) FindCategoryByID(id uint) (*domain.Category, error) {
+func (r *providerRepository) FindCategoryByID(ctx context.Context, id uint) (*domain.Category, error) {
 	var category domain.Category
-	err := r.db.First(&category, id).Error
+	err := r.db.WithContext(ctx).First(&category, id).Error
 	if err != nil {
 		return nil, err
 	}
 	return &category, nil
 }
 
-func (r *providerRepository) FindProviderByID(id uint) (*domain.Provider, error) {
+func (r *providerRepository) FindProviderByID(ctx context.Context, id uint) (*domain.Provider, error) {
 	var provider domain.Provider
-	err := r.db.First(&provider, id).Error
+	err := r.db.WithContext(ctx).First(&provider, id).Error
 	if err != nil {
 		return nil, err
 	}
 	return &provider, nil
 }
 
-func (r *providerRepository) CreateZone(zone *domain.Zone) error {
-	return r.db.Create(zone).Error
+func (r *providerRepository) CreateZone(ctx context.Context, zone *domain.Zone) error {
+	return r.db.WithContext(ctx).Create(zone).Error
 }
 
-func (r *providerRepository) FindZonesByProviderID(providerID uint) ([]domain.Zone, error) {
+func (r *providerRepository) FindZonesByProviderID(ctx context.Context, providerID uint) ([]domain.Zone, error) {
 	var zones []domain.Zone
-	err := r.db.Where("provider_id = ?", providerID).Order("id asc").Find(&zones).Error
+	err := r.db.WithContext(ctx).Where("provider_id = ?", providerID).Order("id asc").Find(&zones).Error
 	return zones, err
 }
 
-func (r *providerRepository) FindZoneByID(id uint) (*domain.Zone, error) {
+func (r *providerRepository) FindZoneByID(ctx context.Context, id uint) (*domain.Zone, error) {
 	var zone domain.Zone
-	err := r.db.First(&zone, id).Error
+	err := r.db.WithContext(ctx).First(&zone, id).Error
 	if err != nil {
 		return nil, err
 	}
 	return &zone, nil
 }
 
-func (r *providerRepository) UpdateZone(zone *domain.Zone) error {
-	return r.db.Save(zone).Error
+func (r *providerRepository) UpdateZone(ctx context.Context, zone *domain.Zone) error {
+	return r.db.WithContext(ctx).Save(zone).Error
 }
 
-func (r *providerRepository) CountQueuesByZoneID(zoneID uint) (int, error) {
+func (r *providerRepository) CountQueuesByZoneID(ctx context.Context, zoneID uint) (int, error) {
 	var count int64
-	err := r.db.Model(&domain.Queue{}).Where("zone_id = ?", zoneID).Count(&count).Error
+	err := r.db.WithContext(ctx).Model(&domain.Queue{}).Where("zone_id = ?", zoneID).Count(&count).Error
 	return int(count), err
 }
 
-func (r *providerRepository) CountQueuesByZoneIDs(zoneIDs []uint) (map[uint]int, error) {
+func (r *providerRepository) CountQueuesByZoneIDs(ctx context.Context, zoneIDs []uint) (map[uint]int, error) {
 	counts := make(map[uint]int, len(zoneIDs))
 	if len(zoneIDs) == 0 {
 		return counts, nil
@@ -81,7 +82,7 @@ func (r *providerRepository) CountQueuesByZoneIDs(zoneIDs []uint) (map[uint]int,
 		ZoneID uint
 		Count  int
 	}
-	err := r.db.Model(&domain.Queue{}).
+	err := r.db.WithContext(ctx).Model(&domain.Queue{}).
 		Select("zone_id, COUNT(*) AS count").
 		Where("zone_id IN ?", zoneIDs).
 		Group("zone_id").
