@@ -6,16 +6,21 @@ import (
 	"testing"
 
 	"qflow/internal/domain"
-
-	"gorm.io/gorm"
+	"qflow/internal/repository"
 )
 
 // ===================== MOCK REPOSITORY =====================
 
 type mockQueueRepo struct {
-	queues map[uint]*domain.Queue
-	nextID uint
-	zones  map[uint]*domain.Zone
+	queues        map[uint]*domain.Queue
+	nextID        uint
+	zones         map[uint]*domain.Zone
+	findZoneErr   error
+	createErr     error
+	findByNumErr  error
+	findByIDErr   error
+	findByUserErr error
+	updateErr     error
 }
 
 func newMockRepo() *mockQueueRepo {
@@ -38,15 +43,21 @@ func newMockRepo() *mockQueueRepo {
 }
 
 func (m *mockQueueRepo) FindZoneByID(_ context.Context, id uint) (*domain.Zone, error) {
+	if m.findZoneErr != nil {
+		return nil, m.findZoneErr
+	}
 	z, ok := m.zones[id]
 	if !ok {
-		return nil, gorm.ErrRecordNotFound
+		return nil, repository.ErrQueueZoneRecordNotFound
 	}
 	cp := *z
 	return &cp, nil
 }
 
 func (m *mockQueueRepo) CreateWithNextQueueNumber(_ context.Context, q *domain.Queue) error {
+	if m.createErr != nil {
+		return m.createErr
+	}
 	maxQN := 0
 	for _, existing := range m.queues {
 		if existing.QueueNumber > maxQN {
@@ -62,25 +73,34 @@ func (m *mockQueueRepo) CreateWithNextQueueNumber(_ context.Context, q *domain.Q
 }
 
 func (m *mockQueueRepo) FindByQueueNumber(_ context.Context, qn int) (*domain.Queue, error) {
+	if m.findByNumErr != nil {
+		return nil, m.findByNumErr
+	}
 	for _, q := range m.queues {
 		if q.QueueNumber == qn {
 			cp := *q
 			return &cp, nil
 		}
 	}
-	return nil, ErrQueueNotFound
+	return nil, repository.ErrQueueRecordNotFound
 }
 
 func (m *mockQueueRepo) FindByID(_ context.Context, id uint) (*domain.Queue, error) {
+	if m.findByIDErr != nil {
+		return nil, m.findByIDErr
+	}
 	q, ok := m.queues[id]
 	if !ok {
-		return nil, ErrQueueNotFound
+		return nil, repository.ErrQueueRecordNotFound
 	}
 	cp := *q
 	return &cp, nil
 }
 
 func (m *mockQueueRepo) FindByUserID(_ context.Context, userID uint) ([]domain.Queue, error) {
+	if m.findByUserErr != nil {
+		return nil, m.findByUserErr
+	}
 	var result []domain.Queue
 	for _, q := range m.queues {
 		if q.UserID == userID {
@@ -91,9 +111,12 @@ func (m *mockQueueRepo) FindByUserID(_ context.Context, userID uint) ([]domain.Q
 }
 
 func (m *mockQueueRepo) UpdateStatus(_ context.Context, id uint, status string) error {
+	if m.updateErr != nil {
+		return m.updateErr
+	}
 	q, ok := m.queues[id]
 	if !ok {
-		return ErrQueueNotFound
+		return repository.ErrQueueRecordNotFound
 	}
 	q.Status = status
 	return nil
@@ -113,6 +136,13 @@ func (m *mockQueueRepo) GetByZoneID(_ context.Context, zoneID uint) ([]domain.Qu
 
 func newService() *queueService {
 	return &queueService{repo: newMockRepo()}
+}
+
+func TestNewQueueService(t *testing.T) {
+	svc := NewQueueService(newMockRepo())
+	if svc == nil {
+		t.Fatal("expected non-nil service")
+	}
 }
 
 // ===================== BookQueue =====================
@@ -140,6 +170,56 @@ func TestBookQueue_ZoneNotFound(t *testing.T) {
 	}
 }
 
+func TestBookQueue_InvalidUserID(t *testing.T) {
+	svc := newService()
+
+	_, err := svc.BookQueue(context.Background(), 0, 10)
+	if !errors.Is(err, ErrInvalidUserID) {
+		t.Fatalf("expected ErrInvalidUserID, got: %v", err)
+	}
+}
+
+func TestBookQueue_InvalidZoneID(t *testing.T) {
+	svc := newService()
+
+	_, err := svc.BookQueue(context.Background(), 77, 0)
+	if !errors.Is(err, ErrInvalidZoneID) {
+		t.Fatalf("expected ErrInvalidZoneID, got: %v", err)
+	}
+}
+
+func TestBookQueue_ZoneClosed(t *testing.T) {
+	svc := newService()
+	svc.repo.(*mockQueueRepo).zones[20].IsOpen = false
+
+	_, err := svc.BookQueue(context.Background(), 77, 20)
+	if !errors.Is(err, ErrZoneClosed) {
+		t.Fatalf("expected ErrZoneClosed, got: %v", err)
+	}
+}
+
+func TestBookQueue_FindZoneGenericError(t *testing.T) {
+	svc := newService()
+	repo := svc.repo.(*mockQueueRepo)
+	repo.findZoneErr = errors.New("db timeout")
+
+	_, err := svc.BookQueue(context.Background(), 77, 20)
+	if !errors.Is(err, repo.findZoneErr) {
+		t.Fatalf("expected generic zone lookup error, got: %v", err)
+	}
+}
+
+func TestBookQueue_CreateQueueError(t *testing.T) {
+	svc := newService()
+	repo := svc.repo.(*mockQueueRepo)
+	repo.createErr = errors.New("insert failed")
+
+	_, err := svc.BookQueue(context.Background(), 77, 20)
+	if !errors.Is(err, repo.createErr) {
+		t.Fatalf("expected create error, got: %v", err)
+	}
+}
+
 // ===================== GetQueueByNumber =====================
 
 func TestGetQueueByNumber_Success(t *testing.T) {
@@ -162,6 +242,26 @@ func TestGetQueueByNumber_NotFound(t *testing.T) {
 
 	if !errors.Is(err, ErrQueueNotFound) {
 		t.Fatalf("expected ErrQueueNotFound, got: %v", err)
+	}
+}
+
+func TestGetQueueByNumber_InvalidUserID(t *testing.T) {
+	svc := newService()
+
+	_, err := svc.GetQueueByNumber(context.Background(), 1, 0)
+	if !errors.Is(err, ErrInvalidUserID) {
+		t.Fatalf("expected ErrInvalidUserID, got: %v", err)
+	}
+}
+
+func TestGetQueueByNumber_GenericError(t *testing.T) {
+	svc := newService()
+	repo := svc.repo.(*mockQueueRepo)
+	repo.findByNumErr = errors.New("query failed")
+
+	_, err := svc.GetQueueByNumber(context.Background(), 1, 99)
+	if !errors.Is(err, repo.findByNumErr) {
+		t.Fatalf("expected generic query error, got: %v", err)
 	}
 }
 
@@ -237,6 +337,26 @@ func TestCancelQueue_NotFound(t *testing.T) {
 	}
 }
 
+func TestCancelQueue_InvalidUserID(t *testing.T) {
+	svc := newService()
+
+	err := svc.CancelQueue(context.Background(), 1, 0)
+	if !errors.Is(err, ErrInvalidUserID) {
+		t.Fatalf("expected ErrInvalidUserID, got: %v", err)
+	}
+}
+
+func TestCancelQueue_GenericFindError(t *testing.T) {
+	svc := newService()
+	repo := svc.repo.(*mockQueueRepo)
+	repo.findByIDErr = errors.New("query failed")
+
+	err := svc.CancelQueue(context.Background(), 1, 99)
+	if !errors.Is(err, repo.findByIDErr) {
+		t.Fatalf("expected generic find error, got: %v", err)
+	}
+}
+
 // ===================== CallQueue =====================
 
 func TestCallQueue_Success(t *testing.T) {
@@ -282,6 +402,28 @@ func TestCallQueue_NotFound(t *testing.T) {
 	}
 }
 
+func TestCallQueue_FindByIDGenericError(t *testing.T) {
+	svc := newService()
+	repo := svc.repo.(*mockQueueRepo)
+	repo.findByIDErr = errors.New("lookup failed")
+
+	_, err := svc.CallQueue(context.Background(), 1)
+	if !errors.Is(err, repo.findByIDErr) {
+		t.Fatalf("expected generic find error, got: %v", err)
+	}
+}
+
+func TestCallQueue_UpdateStatusGenericError(t *testing.T) {
+	svc := newService()
+	repo := svc.repo.(*mockQueueRepo)
+	repo.updateErr = errors.New("update failed")
+
+	_, err := svc.CallQueue(context.Background(), 1)
+	if !errors.Is(err, repo.updateErr) {
+		t.Fatalf("expected generic update error, got: %v", err)
+	}
+}
+
 // ===================== CompleteQueue =====================
 
 func TestCompleteQueue_Success(t *testing.T) {
@@ -324,6 +466,28 @@ func TestCompleteQueue_NotFound(t *testing.T) {
 
 	if !errors.Is(err, ErrQueueNotFound) {
 		t.Fatalf("expected ErrQueueNotFound, got: %v", err)
+	}
+}
+
+func TestCompleteQueue_FindByIDGenericError(t *testing.T) {
+	svc := newService()
+	repo := svc.repo.(*mockQueueRepo)
+	repo.findByIDErr = errors.New("lookup failed")
+
+	_, err := svc.CompleteQueue(context.Background(), 2)
+	if !errors.Is(err, repo.findByIDErr) {
+		t.Fatalf("expected generic find error, got: %v", err)
+	}
+}
+
+func TestCompleteQueue_UpdateStatusGenericError(t *testing.T) {
+	svc := newService()
+	repo := svc.repo.(*mockQueueRepo)
+	repo.updateErr = errors.New("update failed")
+
+	_, err := svc.CompleteQueue(context.Background(), 2)
+	if !errors.Is(err, repo.updateErr) {
+		t.Fatalf("expected generic update error, got: %v", err)
 	}
 }
 
@@ -385,6 +549,28 @@ func TestSkipQueue_NotFound(t *testing.T) {
 	}
 }
 
+func TestSkipQueue_FindByIDGenericError(t *testing.T) {
+	svc := newService()
+	repo := svc.repo.(*mockQueueRepo)
+	repo.findByIDErr = errors.New("lookup failed")
+
+	_, err := svc.SkipQueue(context.Background(), 1)
+	if !errors.Is(err, repo.findByIDErr) {
+		t.Fatalf("expected generic find error, got: %v", err)
+	}
+}
+
+func TestSkipQueue_UpdateStatusGenericError(t *testing.T) {
+	svc := newService()
+	repo := svc.repo.(*mockQueueRepo)
+	repo.updateErr = errors.New("update failed")
+
+	_, err := svc.SkipQueue(context.Background(), 1)
+	if !errors.Is(err, repo.updateErr) {
+		t.Fatalf("expected generic update error, got: %v", err)
+	}
+}
+
 // ===================== GetQueuesByZone =====================
 
 func TestGetQueuesByZone_WithQueues(t *testing.T) {
@@ -438,5 +624,14 @@ func TestGetQueueHistory_NoHistory(t *testing.T) {
 	}
 	if len(queues) != 0 {
 		t.Fatalf("expected empty history, got %d", len(queues))
+	}
+}
+
+func TestGetQueueHistory_InvalidUserID(t *testing.T) {
+	svc := newService()
+
+	_, err := svc.GetQueueHistory(context.Background(), 0)
+	if !errors.Is(err, ErrInvalidUserID) {
+		t.Fatalf("expected ErrInvalidUserID, got: %v", err)
 	}
 }
