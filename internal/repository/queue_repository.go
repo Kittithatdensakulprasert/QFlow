@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"qflow/internal/domain"
 
 	"gorm.io/gorm"
@@ -11,16 +12,22 @@ type queueRepository struct {
 	db *gorm.DB
 }
 
+var (
+	ErrQueueZoneRecordNotFound = errors.New("queue zone record not found")
+	ErrQueueRecordNotFound     = errors.New("queue record not found")
+)
+
 func NewQueueRepository(db *gorm.DB) domain.QueueRepository {
 	return &queueRepository{db: db}
 }
 
 func (r *queueRepository) FindZoneByID(ctx context.Context, id uint) (*domain.Zone, error) {
 	var zone domain.Zone
-	if err := r.db.WithContext(ctx).First(&zone, id).Error; err != nil {
-		return nil, err
+	err := r.db.WithContext(ctx).First(&zone, id).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, ErrQueueZoneRecordNotFound
 	}
-	return &zone, nil
+	return &zone, err
 }
 
 func (r *queueRepository) CreateWithNextQueueNumber(ctx context.Context, queue *domain.Queue) error {
@@ -51,19 +58,19 @@ func (r *queueRepository) FindByQueueNumber(ctx context.Context, queueNumber int
 		Where("queue_number = ?", queueNumber).
 		Order("created_at desc").
 		First(&queue).Error
-	if err != nil {
-		return nil, err
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, ErrQueueRecordNotFound
 	}
-	return &queue, nil
+	return &queue, err
 }
 
 func (r *queueRepository) FindByID(ctx context.Context, id uint) (*domain.Queue, error) {
 	var queue domain.Queue
 	err := r.db.WithContext(ctx).Preload("Zone").First(&queue, id).Error
-	if err != nil {
-		return nil, err
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, ErrQueueRecordNotFound
 	}
-	return &queue, nil
+	return &queue, err
 }
 
 func (r *queueRepository) FindByUserID(ctx context.Context, userID uint) ([]domain.Queue, error) {

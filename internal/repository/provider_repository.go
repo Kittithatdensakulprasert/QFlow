@@ -2,9 +2,16 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"qflow/internal/domain"
 
 	"gorm.io/gorm"
+)
+
+var (
+	ErrProviderCategoryRecordNotFound = errors.New("provider category record not found")
+	ErrProviderRecordNotFound         = errors.New("provider record not found")
+	ErrProviderZoneRecordNotFound     = errors.New("provider zone record not found")
 )
 
 type providerRepository struct {
@@ -28,19 +35,19 @@ func (r *providerRepository) FindProviders(ctx context.Context) ([]domain.Provid
 func (r *providerRepository) FindCategoryByID(ctx context.Context, id uint) (*domain.Category, error) {
 	var category domain.Category
 	err := r.db.WithContext(ctx).First(&category, id).Error
-	if err != nil {
-		return nil, err
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, ErrProviderCategoryRecordNotFound
 	}
-	return &category, nil
+	return &category, err
 }
 
 func (r *providerRepository) FindProviderByID(ctx context.Context, id uint) (*domain.Provider, error) {
 	var provider domain.Provider
 	err := r.db.WithContext(ctx).First(&provider, id).Error
-	if err != nil {
-		return nil, err
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, ErrProviderRecordNotFound
 	}
-	return &provider, nil
+	return &provider, err
 }
 
 func (r *providerRepository) CreateZone(ctx context.Context, zone *domain.Zone) error {
@@ -56,10 +63,10 @@ func (r *providerRepository) FindZonesByProviderID(ctx context.Context, provider
 func (r *providerRepository) FindZoneByID(ctx context.Context, id uint) (*domain.Zone, error) {
 	var zone domain.Zone
 	err := r.db.WithContext(ctx).First(&zone, id).Error
-	if err != nil {
-		return nil, err
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, ErrProviderZoneRecordNotFound
 	}
-	return &zone, nil
+	return &zone, err
 }
 
 func (r *providerRepository) UpdateZone(ctx context.Context, zone *domain.Zone) error {
