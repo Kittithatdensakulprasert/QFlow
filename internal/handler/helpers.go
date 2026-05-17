@@ -39,13 +39,24 @@ func resolveContextUserID(c *gin.Context) (uint, bool) {
 
 // parseUintParam parses a named URL parameter as uint.
 // Writes a 400 Bad Request response and returns (0, false) if parsing fails.
-func parseUintParam(c *gin.Context, name string, errorMessage string) (uint, bool) {
+func parseUintParam(c *gin.Context, name string, errorCode string, errorMessage string) (uint, bool) {
 	value, err := strconv.ParseUint(c.Param(name), 10, 64)
 	if err != nil || value == 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": errorMessage})
+		respondError(c, http.StatusBadRequest, errorCode, errorMessage)
 		return 0, false
 	}
 	return uint(value), true
+}
+
+// parsePositiveIntParam parses a named URL parameter as a positive int.
+// Writes a 400 Bad Request response and returns (0, false) if parsing fails.
+func parsePositiveIntParam(c *gin.Context, name string, errorCode string, errorMessage string) (int, bool) {
+	value, err := strconv.Atoi(c.Param(name))
+	if err != nil || value <= 0 {
+		respondError(c, http.StatusBadRequest, errorCode, errorMessage)
+		return 0, false
+	}
+	return value, true
 }
 
 // parseID parses a URL parameter string into a uint ID.

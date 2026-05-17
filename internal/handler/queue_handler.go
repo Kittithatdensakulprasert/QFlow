@@ -3,7 +3,6 @@ package handler
 import (
 	"errors"
 	"net/http"
-	"strconv"
 
 	"qflow/internal/domain"
 	"qflow/internal/service"
@@ -82,9 +81,8 @@ func (h *QueueHandler) GetHistory(c *gin.Context) {
 
 // GET /api/queues/:queueNumber
 func (h *QueueHandler) GetQueue(c *gin.Context) {
-	queueNumber, err := strconv.Atoi(c.Param("queueNumber"))
-	if err != nil || queueNumber <= 0 {
-		respondError(c, http.StatusBadRequest, "INVALID_QUEUE_NUMBER", "invalid queue number")
+	queueNumber, ok := parsePositiveIntParam(c, "queueNumber", "INVALID_QUEUE_NUMBER", "invalid queue number")
+	if !ok {
 		return
 	}
 
@@ -113,9 +111,8 @@ func (h *QueueHandler) GetQueue(c *gin.Context) {
 
 // PATCH /api/queues/:id/cancel
 func (h *QueueHandler) CancelQueue(c *gin.Context) {
-	id, err := strconv.Atoi(c.Param("id"))
-	if err != nil || id <= 0 {
-		respondError(c, http.StatusBadRequest, "INVALID_ID", "invalid id")
+	id, ok := parseUintParam(c, "id", "INVALID_ID", "invalid id")
+	if !ok {
 		return
 	}
 
@@ -124,7 +121,7 @@ func (h *QueueHandler) CancelQueue(c *gin.Context) {
 		respondError(c, http.StatusUnauthorized, "UNAUTHORIZED", "authentication required")
 		return
 	}
-	err = h.svc.CancelQueue(uint(id), userID)
+	err := h.svc.CancelQueue(id, userID)
 	if err != nil {
 		switch {
 		case errors.Is(err, service.ErrInvalidUserID):
@@ -148,13 +145,12 @@ func (h *QueueHandler) CancelQueue(c *gin.Context) {
 
 // GET /api/manage/queues/:zoneId
 func (h *QueueHandler) GetQueuesByZone(c *gin.Context) {
-	zoneID, err := strconv.ParseUint(c.Param("zoneId"), 10, 64)
-	if err != nil {
-		respondError(c, http.StatusBadRequest, "INVALID_ZONE_ID", "invalid zone id")
+	zoneID, ok := parseUintParam(c, "zoneId", "INVALID_ZONE_ID", "invalid zone id")
+	if !ok {
 		return
 	}
 
-	queues, err := h.svc.GetQueuesByZone(uint(zoneID))
+	queues, err := h.svc.GetQueuesByZone(zoneID)
 	if err != nil {
 		respondError(c, http.StatusInternalServerError, "INTERNAL_SERVER_ERROR", "internal server error")
 		return
@@ -165,13 +161,12 @@ func (h *QueueHandler) GetQueuesByZone(c *gin.Context) {
 
 // PATCH /api/manage/queues/:id/call
 func (h *QueueHandler) CallQueue(c *gin.Context) {
-	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err != nil {
-		respondError(c, http.StatusBadRequest, "INVALID_ID", "invalid id")
+	id, ok := parseUintParam(c, "id", "INVALID_ID", "invalid id")
+	if !ok {
 		return
 	}
 
-	queue, err := h.svc.CallQueue(uint(id))
+	queue, err := h.svc.CallQueue(id)
 	if err != nil {
 		switch {
 		case errors.Is(err, service.ErrQueueNotFound):
@@ -189,13 +184,12 @@ func (h *QueueHandler) CallQueue(c *gin.Context) {
 
 // PATCH /api/manage/queues/:id/complete
 func (h *QueueHandler) CompleteQueue(c *gin.Context) {
-	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err != nil {
-		respondError(c, http.StatusBadRequest, "INVALID_ID", "invalid id")
+	id, ok := parseUintParam(c, "id", "INVALID_ID", "invalid id")
+	if !ok {
 		return
 	}
 
-	queue, err := h.svc.CompleteQueue(uint(id))
+	queue, err := h.svc.CompleteQueue(id)
 	if err != nil {
 		switch {
 		case errors.Is(err, service.ErrQueueNotFound):
@@ -213,13 +207,12 @@ func (h *QueueHandler) CompleteQueue(c *gin.Context) {
 
 // PATCH /api/manage/queues/:id/skip
 func (h *QueueHandler) SkipQueue(c *gin.Context) {
-	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err != nil {
-		respondError(c, http.StatusBadRequest, "INVALID_ID", "invalid id")
+	id, ok := parseUintParam(c, "id", "INVALID_ID", "invalid id")
+	if !ok {
 		return
 	}
 
-	queue, err := h.svc.SkipQueue(uint(id))
+	queue, err := h.svc.SkipQueue(id)
 	if err != nil {
 		switch {
 		case errors.Is(err, service.ErrQueueNotFound):
