@@ -12,12 +12,14 @@ import (
 type authService struct {
 	authRepo   domain.AuthRepository
 	jwtManager *jwt.JWTManager
+	tokenGen   func(userID uint, phone, role string) (string, error)
 }
 
 func NewAuthService(authRepo domain.AuthRepository, jwtManager *jwt.JWTManager) domain.AuthService {
 	return &authService{
 		authRepo:   authRepo,
 		jwtManager: jwtManager,
+		tokenGen:   jwtManager.GenerateToken,
 	}
 }
 
@@ -69,7 +71,7 @@ func (s *authService) VerifyOTP(ctx context.Context, phone, code string) (*domai
 	}
 
 	// Generate JWT token
-	token, err := s.jwtManager.GenerateToken(user.ID, user.Phone, user.Role)
+	token, err := s.tokenGen(user.ID, user.Phone, user.Role)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to generate token: %w", err)
 	}
@@ -122,7 +124,7 @@ func (s *authService) RegisterUser(ctx context.Context, phone, name, role, otpCo
 	}
 
 	// Generate JWT token
-	token, err := s.jwtManager.GenerateToken(user.ID, user.Phone, user.Role)
+	token, err := s.tokenGen(user.ID, user.Phone, user.Role)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to generate token: %w", err)
 	}

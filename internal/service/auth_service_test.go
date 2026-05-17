@@ -15,6 +15,7 @@ type mockAuthRepository struct {
 	users         map[string]*domain.User
 	usersByID     map[uint]*domain.User
 	otpUsed       bool
+	markOTPErr    error
 	createError   error
 	findError     error
 	createUserErr error
@@ -53,6 +54,9 @@ func (m *mockAuthRepository) FindValidOTP(_ context.Context, phone, code string)
 }
 
 func (m *mockAuthRepository) MarkOTPAsUsed(_ context.Context, otpID uint) error {
+	if m.markOTPErr != nil {
+		return m.markOTPErr
+	}
 	if m.otpUsed {
 		return errors.New("OTP has already been used or does not exist")
 	}
@@ -174,6 +178,17 @@ func TestAuthService_VerifyOTP(t *testing.T) {
 		{"user not found", "1234567890", "123456", func(m *mockAuthRepository) {
 			m.otp = &domain.OTP{ID: 1, Phone: "1234567890", Code: "123456", Used: false, ExpiresAt: time.Now().Add(5 * time.Minute)}
 		}, false},
+		{"mark OTP error", "1234567890", "123456", func(m *mockAuthRepository) {
+			user := &domain.User{ID: 1, Phone: "1234567890", Name: "Test User"}
+			m.users["1234567890"] = user
+			m.usersByID[1] = user
+			m.otp = &domain.OTP{ID: 1, Phone: "1234567890", Code: "123456", Used: false, ExpiresAt: time.Now().Add(5 * time.Minute)}
+			m.markOTPErr = errors.New("mark OTP failed")
+		}, true},
+		{"create user error when user not found", "1234567890", "123456", func(m *mockAuthRepository) {
+			m.otp = &domain.OTP{ID: 1, Phone: "1234567890", Code: "123456", Used: false, ExpiresAt: time.Now().Add(5 * time.Minute)}
+			m.createUserErr = errors.New("create user failed")
+		}, true},
 	}
 
 	for _, tt := range tests {
@@ -220,26 +235,33 @@ func TestAuthService_RegisterUser(t *testing.T) {
 		phone    string
 		userName string
 		role     string
+		otpCode  string
 		setup    func(*mockAuthRepository)
 		wantErr  bool
 	}{
-		{"valid registration", "1234567890", "Test User", "user", func(m *mockAuthRepository) {
+		{"valid registration", "1234567890", "Test User", "user", "123456", func(m *mockAuthRepository) {
 			m.otp = &domain.OTP{ID: 1, Phone: "1234567890", Code: "123456", Used: false, ExpiresAt: time.Now().Add(5 * time.Minute)}
 		}, false},
-		{"empty phone", "", "Test User", "user", func(m *mockAuthRepository) {}, true},
-		{"empty name", "1234567890", "", "user", func(m *mockAuthRepository) {}, true},
-		{"user exists", "1234567890", "Test User", "user", func(m *mockAuthRepository) {
+		{"empty phone", "", "Test User", "user", "123456", func(m *mockAuthRepository) {}, true},
+		{"empty name", "1234567890", "", "user", "123456", func(m *mockAuthRepository) {}, true},
+		{"user exists", "1234567890", "Test User", "user", "123456", func(m *mockAuthRepository) {
 			user := &domain.User{ID: 1, Phone: "1234567890", Name: "Existing User"}
 			m.users["1234567890"] = user
 		}, true},
-		{"OTP already used", "1234567890", "Test User", "user", func(m *mockAuthRepository) {
+		{"empty OTP code", "1234567890", "Test User", "user", "", func(m *mockAuthRepository) {}, true},
+		{"OTP already used", "1234567890", "Test User", "user", "123456", func(m *mockAuthRepository) {
 			m.otp = &domain.OTP{ID: 1, Phone: "1234567890", Code: "123456", Used: false, ExpiresAt: time.Now().Add(5 * time.Minute)}
 			m.otpUsed = true
 		}, true},
-		{"create error", "1234567890", "Test User", "user", func(m *mockAuthRepository) {
+		{"mark OTP error", "1234567890", "Test User", "user", "123456", func(m *mockAuthRepository) {
+			m.otp = &domain.OTP{ID: 1, Phone: "1234567890", Code: "123456", Used: false, ExpiresAt: time.Now().Add(5 * time.Minute)}
+			m.markOTPErr = errors.New("mark OTP failed")
+		}, true},
+		{"create error", "1234567890", "Test User", "user", "123456", func(m *mockAuthRepository) {
+			m.otp = &domain.OTP{ID: 1, Phone: "1234567890", Code: "123456", Used: false, ExpiresAt: time.Now().Add(5 * time.Minute)}
 			m.createUserErr = errors.New("database error")
 		}, true},
-		{"default role", "1234567890", "Test User", "", func(m *mockAuthRepository) {
+		{"default role", "1234567890", "Test User", "", "123456", func(m *mockAuthRepository) {
 			m.otp = &domain.OTP{ID: 1, Phone: "1234567890", Code: "123456", Used: false, ExpiresAt: time.Now().Add(5 * time.Minute)}
 		}, false},
 	}
@@ -251,7 +273,7 @@ func TestAuthService_RegisterUser(t *testing.T) {
 
 			jwtManager := jwt.NewJWTManager("test-secret-key")
 			service := NewAuthService(mock, jwtManager)
-			user, token, err := service.RegisterUser(context.Background(), tt.phone, tt.userName, tt.role, "123456")
+			user, token, err := service.RegisterUser(context.Background(), tt.phone, tt.userName, tt.role, tt.otpCode)
 
 			if tt.wantErr {
 				if err == nil {
@@ -291,6 +313,55 @@ func TestAuthService_RegisterUser(t *testing.T) {
 				t.Errorf("Expected role %s but got %s", expectedRole, user.Role)
 			}
 		})
+	}
+}
+
+func TestAuthService_VerifyOTP_TokenGenerationError(t *testing.T) {
+	mock := newMockAuthRepository()
+	user := &domain.User{ID: 1, Phone: "1234567890", Name: "Test User", Role: "user"}
+	mock.users["1234567890"] = user
+	mock.usersByID[1] = user
+	mock.otp = &domain.OTP{ID: 1, Phone: "1234567890", Code: "123456", Used: false, ExpiresAt: time.Now().Add(5 * time.Minute)}
+
+	jwtManager := jwt.NewJWTManager("test-secret-key")
+	service := NewAuthService(mock, jwtManager)
+	serviceImpl := service.(*authService)
+	serviceImpl.tokenGen = func(_ uint, _ string, _ string) (string, error) {
+		return "", errors.New("token generation failed")
+	}
+
+	gotUser, gotToken, err := service.VerifyOTP(context.Background(), "1234567890", "123456")
+	if err == nil {
+		t.Fatalf("expected error but got nil")
+	}
+	if gotUser != nil {
+		t.Fatalf("expected nil user but got %+v", gotUser)
+	}
+	if gotToken != "" {
+		t.Fatalf("expected empty token but got %q", gotToken)
+	}
+}
+
+func TestAuthService_RegisterUser_TokenGenerationError(t *testing.T) {
+	mock := newMockAuthRepository()
+	mock.otp = &domain.OTP{ID: 1, Phone: "1234567890", Code: "123456", Used: false, ExpiresAt: time.Now().Add(5 * time.Minute)}
+
+	jwtManager := jwt.NewJWTManager("test-secret-key")
+	service := NewAuthService(mock, jwtManager)
+	serviceImpl := service.(*authService)
+	serviceImpl.tokenGen = func(_ uint, _ string, _ string) (string, error) {
+		return "", errors.New("token generation failed")
+	}
+
+	gotUser, gotToken, err := service.RegisterUser(context.Background(), "1234567890", "Test User", "user", "123456")
+	if err == nil {
+		t.Fatalf("expected error but got nil")
+	}
+	if gotUser != nil {
+		t.Fatalf("expected nil user but got %+v", gotUser)
+	}
+	if gotToken != "" {
+		t.Fatalf("expected empty token but got %q", gotToken)
 	}
 }
 
