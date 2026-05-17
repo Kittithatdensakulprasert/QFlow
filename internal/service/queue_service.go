@@ -5,8 +5,7 @@ import (
 	"errors"
 
 	"qflow/internal/domain"
-
-	"gorm.io/gorm"
+	"qflow/internal/repository"
 )
 
 var (
@@ -40,7 +39,7 @@ func (s *queueService) BookQueue(ctx context.Context, userID, zoneID uint) (*dom
 
 	zone, err := s.repo.FindZoneByID(ctx, zoneID)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
+		if errors.Is(err, repository.ErrQueueZoneRecordNotFound) {
 			return nil, ErrZoneNotFound
 		}
 		return nil, err
@@ -68,7 +67,7 @@ func (s *queueService) GetQueueByNumber(ctx context.Context, queueNumber int, us
 
 	queue, err := s.repo.FindByQueueNumber(ctx, queueNumber)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
+		if errors.Is(err, repository.ErrQueueRecordNotFound) {
 			return nil, ErrQueueNotFound
 		}
 		return nil, err
@@ -93,7 +92,7 @@ func (s *queueService) CancelQueue(ctx context.Context, id, userID uint) error {
 
 	queue, err := s.repo.FindByID(ctx, id)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
+		if errors.Is(err, repository.ErrQueueRecordNotFound) {
 			return ErrQueueNotFound
 		}
 		return err
@@ -121,7 +120,7 @@ func (s *queueService) GetQueuesByZone(ctx context.Context, zoneID uint) ([]doma
 func (s *queueService) CallQueue(ctx context.Context, id uint) (*domain.Queue, error) {
 	queue, err := s.repo.FindByID(ctx, id)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
+		if errors.Is(err, repository.ErrQueueRecordNotFound) {
 			return nil, ErrQueueNotFound
 		}
 		return nil, err
@@ -141,7 +140,7 @@ func (s *queueService) CallQueue(ctx context.Context, id uint) (*domain.Queue, e
 func (s *queueService) CompleteQueue(ctx context.Context, id uint) (*domain.Queue, error) {
 	queue, err := s.repo.FindByID(ctx, id)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
+		if errors.Is(err, repository.ErrQueueRecordNotFound) {
 			return nil, ErrQueueNotFound
 		}
 		return nil, err
@@ -161,7 +160,7 @@ func (s *queueService) CompleteQueue(ctx context.Context, id uint) (*domain.Queu
 func (s *queueService) SkipQueue(ctx context.Context, id uint) (*domain.Queue, error) {
 	queue, err := s.repo.FindByID(ctx, id)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
+		if errors.Is(err, repository.ErrQueueRecordNotFound) {
 			return nil, ErrQueueNotFound
 		}
 		return nil, err
