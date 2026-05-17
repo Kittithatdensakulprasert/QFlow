@@ -22,13 +22,19 @@ type categoryRequest struct {
 }
 
 func (h *CategoryHandler) GetCategories(c *gin.Context) {
+	page, limit, err := parsePagination(c)
+	if err != nil {
+		respondError(c, http.StatusBadRequest, "INVALID_PAGINATION", err.Error())
+		return
+	}
+
 	categories, err := h.service.GetCategories(c.Request.Context())
 	if err != nil {
 		respondError(c, http.StatusInternalServerError, "INTERNAL_SERVER_ERROR", "failed to get categories")
 		return
 	}
 
-	c.JSON(http.StatusOK, categories)
+	c.JSON(http.StatusOK, paginateSlice(categories, page, limit))
 }
 
 func (h *CategoryHandler) GetCategory(c *gin.Context) {

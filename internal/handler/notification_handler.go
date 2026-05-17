@@ -25,12 +25,18 @@ func (h *NotificationHandler) GetNotifications(c *gin.Context) {
 		return
 	}
 
+	page, limit, err := parsePagination(c)
+	if err != nil {
+		respondError(c, http.StatusBadRequest, "INVALID_PAGINATION", err.Error())
+		return
+	}
+
 	notifications, err := h.svc.GetNotifications(userID)
 	if err != nil {
 		respondError(c, http.StatusInternalServerError, "INTERNAL_SERVER_ERROR", "internal server error")
 		return
 	}
-	c.JSON(http.StatusOK, notifications)
+	c.JSON(http.StatusOK, paginateSlice(notifications, page, limit))
 }
 
 func (h *NotificationHandler) SendNotification(c *gin.Context) {
