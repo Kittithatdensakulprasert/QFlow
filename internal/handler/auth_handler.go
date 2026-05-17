@@ -1,8 +1,10 @@
 package handler
 
 import (
+	"errors"
 	"net/http"
 	"qflow/internal/domain"
+	"qflow/internal/service"
 
 	"github.com/gin-gonic/gin"
 )
@@ -27,6 +29,10 @@ func (h *AuthHandler) RequestOTP(c *gin.Context) {
 
 	otp, err := h.authService.RequestOTP(req.Phone)
 	if err != nil {
+		if errors.Is(err, service.ErrPhoneRequired) || errors.Is(err, service.ErrPhoneInvalid) {
+			respondError(c, http.StatusBadRequest, "INVALID_PHONE", err.Error())
+			return
+		}
 		respondError(c, http.StatusInternalServerError, "OTP_SEND_FAILED", "failed to send OTP")
 		return
 	}
@@ -53,6 +59,12 @@ func (h *AuthHandler) VerifyOTP(c *gin.Context) {
 
 	user, token, err := h.authService.VerifyOTP(req.Phone, req.Code)
 	if err != nil {
+		if errors.Is(err, service.ErrPhoneRequired) ||
+			errors.Is(err, service.ErrPhoneInvalid) ||
+			errors.Is(err, service.ErrCodeRequired) {
+			respondError(c, http.StatusBadRequest, "INVALID_INPUT", err.Error())
+			return
+		}
 		respondError(c, http.StatusUnauthorized, "OTP_INVALID", err.Error())
 		return
 	}
