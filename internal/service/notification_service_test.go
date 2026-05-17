@@ -12,6 +12,7 @@ import (
 type mockNotificationRepo struct {
 	notifications []domain.Notification
 	nextID        uint
+	createErr     error
 }
 
 func newMockRepo() *mockNotificationRepo {
@@ -38,6 +39,9 @@ func (m *mockNotificationRepo) FindByID(_ context.Context, id uint) (*domain.Not
 }
 
 func (m *mockNotificationRepo) Create(_ context.Context, n *domain.Notification) error {
+	if m.createErr != nil {
+		return m.createErr
+	}
 	n.ID = m.nextID
 	m.nextID++
 	m.notifications = append(m.notifications, *n)
@@ -120,6 +124,20 @@ func TestSendNotification_EmptyMessage(t *testing.T) {
 	_, err := svc.SendNotification(context.Background(), 1, "")
 	if err == nil {
 		t.Error("expected error for empty message")
+	}
+}
+
+func TestSendNotification_CreateError(t *testing.T) {
+	repo := newMockRepo()
+	repo.createErr = errors.New("insert failed")
+	svc := service.NewNotificationService(repo)
+
+	n, err := svc.SendNotification(context.Background(), 1, "hello")
+	if !errors.Is(err, repo.createErr) {
+		t.Fatalf("expected create error, got %v", err)
+	}
+	if n != nil {
+		t.Fatalf("expected nil notification when create fails, got %+v", n)
 	}
 }
 
