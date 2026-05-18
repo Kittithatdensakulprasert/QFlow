@@ -31,6 +31,7 @@ type AuthRepository interface {
 	CreateUser(user *User) error
 	UpdateUser(user *User) error
 	FindUserByID(id uint) (*User, error)
+	MarkOTPAsUsedAndCreateUser(otpID uint, user *User) error
 }
 
 type AuthService interface {

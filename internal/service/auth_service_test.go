@@ -103,6 +103,24 @@ func (m *mockAuthRepository) FindUserByID(id uint) (*domain.User, error) {
 	return nil, errors.New("user not found")
 }
 
+func (m *mockAuthRepository) MarkOTPAsUsedAndCreateUser(otpID uint, user *domain.User) error {
+	if m.otpUsed {
+		return errors.New("OTP has already been used or does not exist")
+	}
+	if m.otp != nil && m.otp.ID == otpID {
+		m.otpUsed = true
+	} else {
+		return errors.New("OTP has already been used or does not exist")
+	}
+	if m.createUserErr != nil {
+		return m.createUserErr
+	}
+	user.ID = uint(len(m.users) + 1)
+	m.users[user.Phone] = user
+	m.usersByID[user.ID] = user
+	return nil
+}
+
 func TestAuthService_RequestOTP(t *testing.T) {
 	tests := []struct {
 		name    string

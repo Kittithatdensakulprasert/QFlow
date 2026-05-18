@@ -47,22 +47,22 @@ func (s *authService) VerifyOTP(phone, code string) (*domain.User, string, error
 		return nil, "", errors.New("invalid or expired OTP")
 	}
 
-	// Mark OTP as used
-	if err := s.authRepo.MarkOTPAsUsed(otp.ID); err != nil {
-		return nil, "", err
-	}
-
 	// Find user - if not found, create new user
 	user, err := s.authRepo.FindUserByPhone(phone)
 	if err != nil {
-		// Auto-create user after OTP verification
+		// Auto-create user after OTP verification in a transaction
 		user = &domain.User{
 			Phone: phone,
 			Name:  phone,  // Default name to phone number
 			Role:  "user", // Default role
 		}
 
-		if err := s.authRepo.CreateUser(user); err != nil {
+		if err := s.authRepo.MarkOTPAsUsedAndCreateUser(otp.ID, user); err != nil {
+			return nil, "", err
+		}
+	} else {
+		// Mark OTP as used for existing user
+		if err := s.authRepo.MarkOTPAsUsed(otp.ID); err != nil {
 			return nil, "", err
 		}
 	}
@@ -104,11 +104,6 @@ func (s *authService) RegisterUser(phone, name, role, otpCode string) (*domain.U
 		return nil, "", errors.New("phone number not verified. Please request OTP first")
 	}
 
-	// Mark OTP as used to prevent reuse
-	if err := s.authRepo.MarkOTPAsUsed(otp.ID); err != nil {
-		return nil, "", err
-	}
-
 	// Create new user
 	user := &domain.User{
 		Phone: phone,
@@ -116,7 +111,8 @@ func (s *authService) RegisterUser(phone, name, role, otpCode string) (*domain.U
 		Role:  role,
 	}
 
-	if err := s.authRepo.CreateUser(user); err != nil {
+	// Mark OTP as used and create user in a transaction to prevent reuse
+	if err := s.authRepo.MarkOTPAsUsedAndCreateUser(otp.ID, user); err != nil {
 		return nil, "", err
 	}
 
