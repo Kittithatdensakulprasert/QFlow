@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"qflow/internal/domain"
-	"qflow/internal/repository"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -50,7 +49,7 @@ func TestCreateCategory_Duplicate(t *testing.T) {
 func TestCreateCategory_DuplicateFromRepo(t *testing.T) {
 	repo := &mockCategoryRepository{
 		createFunc: func(ctx context.Context, category *domain.Category) error {
-			return repository.ErrCategoryDuplicate
+			return domain.ErrCategoryDuplicate
 		},
 	}
 
@@ -186,7 +185,7 @@ func TestUpdateCategory_DuplicateFromRepo(t *testing.T) {
 			return &domain.Category{ID: id, Name: "ชาบู"}, nil
 		},
 		updateFunc: func(ctx context.Context, category *domain.Category) error {
-			return repository.ErrCategoryDuplicate
+			return domain.ErrCategoryDuplicate
 		},
 	}
 
@@ -332,7 +331,7 @@ func (m *mockCategoryRepository) FindByID(ctx context.Context, id uint) (*domain
 
 	category, ok := m.data[id]
 	if !ok {
-		return nil, repository.ErrCategoryRecordNotFound
+		return nil, domain.ErrCategoryRecordNotFound
 	}
 
 	return &category, nil

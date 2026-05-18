@@ -8,12 +8,6 @@ import (
 	"gorm.io/gorm"
 )
 
-var (
-	ErrProviderCategoryRecordNotFound = errors.New("provider category record not found")
-	ErrProviderRecordNotFound         = errors.New("provider record not found")
-	ErrProviderZoneRecordNotFound     = errors.New("provider zone record not found")
-)
-
 type providerRepository struct {
 	db *gorm.DB
 }
@@ -36,7 +30,7 @@ func (r *providerRepository) FindCategoryByID(ctx context.Context, id uint) (*do
 	var category domain.Category
 	err := r.db.WithContext(ctx).First(&category, id).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, ErrProviderCategoryRecordNotFound
+		return nil, domain.ErrProviderCategoryRecordNotFound
 	}
 	return &category, err
 }
@@ -45,7 +39,7 @@ func (r *providerRepository) FindProviderByID(ctx context.Context, id uint) (*do
 	var provider domain.Provider
 	err := r.db.WithContext(ctx).First(&provider, id).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, ErrProviderRecordNotFound
+		return nil, domain.ErrProviderRecordNotFound
 	}
 	return &provider, err
 }
@@ -64,7 +58,7 @@ func (r *providerRepository) FindZoneByID(ctx context.Context, id uint) (*domain
 	var zone domain.Zone
 	err := r.db.WithContext(ctx).First(&zone, id).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, ErrProviderZoneRecordNotFound
+		return nil, domain.ErrProviderZoneRecordNotFound
 	}
 	return &zone, err
 }

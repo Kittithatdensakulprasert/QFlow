@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"qflow/internal/domain"
-	"qflow/internal/repository"
 )
 
 // ===================== MOCK REPOSITORY =====================
@@ -48,7 +47,7 @@ func (m *mockQueueRepo) FindZoneByID(_ context.Context, id uint) (*domain.Zone, 
 	}
 	z, ok := m.zones[id]
 	if !ok {
-		return nil, repository.ErrQueueZoneRecordNotFound
+		return nil, domain.ErrQueueZoneRecordNotFound
 	}
 	cp := *z
 	return &cp, nil
@@ -82,7 +81,7 @@ func (m *mockQueueRepo) FindByQueueNumber(_ context.Context, qn int) (*domain.Qu
 			return &cp, nil
 		}
 	}
-	return nil, repository.ErrQueueRecordNotFound
+	return nil, domain.ErrQueueRecordNotFound
 }
 
 func (m *mockQueueRepo) FindByID(_ context.Context, id uint) (*domain.Queue, error) {
@@ -91,7 +90,7 @@ func (m *mockQueueRepo) FindByID(_ context.Context, id uint) (*domain.Queue, err
 	}
 	q, ok := m.queues[id]
 	if !ok {
-		return nil, repository.ErrQueueRecordNotFound
+		return nil, domain.ErrQueueRecordNotFound
 	}
 	cp := *q
 	return &cp, nil
@@ -116,7 +115,7 @@ func (m *mockQueueRepo) UpdateStatus(_ context.Context, id uint, status string) 
 	}
 	q, ok := m.queues[id]
 	if !ok {
-		return repository.ErrQueueRecordNotFound
+		return domain.ErrQueueRecordNotFound
 	}
 	q.Status = status
 	return nil

@@ -12,11 +12,6 @@ type queueRepository struct {
 	db *gorm.DB
 }
 
-var (
-	ErrQueueZoneRecordNotFound = errors.New("queue zone record not found")
-	ErrQueueRecordNotFound     = errors.New("queue record not found")
-)
-
 func NewQueueRepository(db *gorm.DB) domain.QueueRepository {
 	return &queueRepository{db: db}
 }
@@ -25,7 +20,7 @@ func (r *queueRepository) FindZoneByID(ctx context.Context, id uint) (*domain.Zo
 	var zone domain.Zone
 	err := r.db.WithContext(ctx).First(&zone, id).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, ErrQueueZoneRecordNotFound
+		return nil, domain.ErrQueueZoneRecordNotFound
 	}
 	return &zone, err
 }
@@ -59,7 +54,7 @@ func (r *queueRepository) FindByQueueNumber(ctx context.Context, queueNumber int
 		Order("created_at desc").
 		First(&queue).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, ErrQueueRecordNotFound
+		return nil, domain.ErrQueueRecordNotFound
 	}
 	return &queue, err
 }
@@ -68,7 +63,7 @@ func (r *queueRepository) FindByID(ctx context.Context, id uint) (*domain.Queue,
 	var queue domain.Queue
 	err := r.db.WithContext(ctx).Preload("Zone").First(&queue, id).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, ErrQueueRecordNotFound
+		return nil, domain.ErrQueueRecordNotFound
 	}
 	return &queue, err
 }

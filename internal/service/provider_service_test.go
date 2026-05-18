@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"qflow/internal/domain"
-	"qflow/internal/repository"
 	"qflow/internal/service"
 	"testing"
 )
@@ -77,7 +76,7 @@ func (m *mockProviderRepo) FindCategoryByID(_ context.Context, id uint) (*domain
 	}
 	category, ok := m.categories[id]
 	if !ok {
-		return nil, repository.ErrProviderCategoryRecordNotFound
+		return nil, domain.ErrProviderCategoryRecordNotFound
 	}
 	return &category, nil
 }
@@ -91,7 +90,7 @@ func (m *mockProviderRepo) FindProviderByID(_ context.Context, id uint) (*domain
 	}
 	provider, ok := m.providers[id]
 	if !ok {
-		return nil, repository.ErrProviderRecordNotFound
+		return nil, domain.ErrProviderRecordNotFound
 	}
 	return &provider, nil
 }
@@ -134,7 +133,7 @@ func (m *mockProviderRepo) FindZoneByID(_ context.Context, id uint) (*domain.Zon
 	}
 	zone, ok := m.zones[id]
 	if !ok {
-		return nil, repository.ErrProviderZoneRecordNotFound
+		return nil, domain.ErrProviderZoneRecordNotFound
 	}
 	return &zone, nil
 }

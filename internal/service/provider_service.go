@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"qflow/internal/domain"
-	"qflow/internal/repository"
 	"strings"
 )
 
@@ -33,7 +32,7 @@ func (s *providerService) CreateProvider(ctx context.Context, name string, categ
 	provider := &domain.Provider{Name: name}
 	if categoryID > 0 {
 		if _, err := s.repo.FindCategoryByID(ctx, categoryID); err != nil {
-			if errors.Is(err, repository.ErrProviderCategoryRecordNotFound) {
+			if errors.Is(err, domain.ErrProviderCategoryRecordNotFound) {
 				return nil, ErrProviderCategoryNotFound
 			}
 			return nil, err
@@ -58,7 +57,7 @@ func (s *providerService) CreateZone(ctx context.Context, providerID uint, name 
 	}
 
 	if _, err := s.repo.FindProviderByID(ctx, providerID); err != nil {
-		if errors.Is(err, repository.ErrProviderRecordNotFound) {
+		if errors.Is(err, domain.ErrProviderRecordNotFound) {
 			return nil, ErrProviderNotFound
 		}
 		return nil, err
@@ -84,7 +83,7 @@ func (s *providerService) CreateZone(ctx context.Context, providerID uint, name 
 
 func (s *providerService) GetZones(ctx context.Context, providerID uint) ([]domain.Zone, error) {
 	if _, err := s.repo.FindProviderByID(ctx, providerID); err != nil {
-		if errors.Is(err, repository.ErrProviderRecordNotFound) {
+		if errors.Is(err, domain.ErrProviderRecordNotFound) {
 			return nil, ErrProviderNotFound
 		}
 		return nil, err
@@ -115,7 +114,7 @@ func (s *providerService) GetZones(ctx context.Context, providerID uint) ([]doma
 func (s *providerService) ToggleZone(ctx context.Context, id uint) (*domain.Zone, error) {
 	zone, err := s.repo.FindZoneByID(ctx, id)
 	if err != nil {
-		if errors.Is(err, repository.ErrProviderZoneRecordNotFound) {
+		if errors.Is(err, domain.ErrProviderZoneRecordNotFound) {
 			return nil, ErrProviderZoneNotFound
 		}
 		return nil, err
