@@ -93,10 +93,11 @@ func TestCreateCategory_CreateError(t *testing.T) {
 func TestGetCategories_Success(t *testing.T) {
 	service := newTestCategoryService()
 
-	categories, err := service.GetCategories(context.Background())
+	categories, total, err := service.GetCategories(context.Background(), 1, 20)
 
 	assert.NoError(t, err)
 	assert.NotNil(t, categories)
+	assert.Equal(t, int64(len(categories)), total)
 }
 
 func TestGetCategory_Success(t *testing.T) {

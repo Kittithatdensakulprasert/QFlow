@@ -14,7 +14,8 @@ type mockCategoryRepository struct {
 	data   map[uint]domain.Category
 	nextID uint
 
-	findAllFunc      func(ctx context.Context) ([]domain.Category, error)
+	findAllFunc      func(ctx context.Context, offset, limit int) ([]domain.Category, error)
+	countFunc        func(ctx context.Context) (int64, error)
 	findByIDFunc     func(ctx context.Context, id uint) (*domain.Category, error)
 	createFunc       func(ctx context.Context, category *domain.Category) error
 	updateFunc       func(ctx context.Context, category *domain.Category) error
@@ -22,9 +23,9 @@ type mockCategoryRepository struct {
 	existsByNameFunc func(ctx context.Context, name string) (bool, error)
 }
 
-func (m *mockCategoryRepository) FindAll(ctx context.Context) ([]domain.Category, error) {
+func (m *mockCategoryRepository) FindAll(ctx context.Context, offset, limit int) ([]domain.Category, error) {
 	if m.findAllFunc != nil {
-		return m.findAllFunc(ctx)
+		return m.findAllFunc(ctx, offset, limit)
 	}
 
 	categories := make([]domain.Category, 0, len(m.data))
@@ -33,6 +34,13 @@ func (m *mockCategoryRepository) FindAll(ctx context.Context) ([]domain.Category
 	}
 
 	return categories, nil
+}
+
+func (m *mockCategoryRepository) Count(ctx context.Context) (int64, error) {
+	if m.countFunc != nil {
+		return m.countFunc(ctx)
+	}
+	return int64(len(m.data)), nil
 }
 
 func (m *mockCategoryRepository) FindByID(ctx context.Context, id uint) (*domain.Category, error) {

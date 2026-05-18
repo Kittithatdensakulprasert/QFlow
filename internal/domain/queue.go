@@ -29,7 +29,8 @@ type QueueRepository interface {
 	CreateWithNextQueueNumber(queue *Queue) error
 	FindByQueueNumber(queueNumber int) (*Queue, error)
 	FindByID(id uint) (*Queue, error)
-	FindByUserID(userID uint) ([]Queue, error)
+	FindByUserID(userID uint, offset, limit int) ([]Queue, error)
+	CountByUserID(userID uint) (int64, error)
 	UpdateStatus(id uint, status string) error
 	GetByZoneID(zoneID uint) ([]Queue, error)
 }
@@ -37,7 +38,7 @@ type QueueRepository interface {
 type QueueService interface {
 	BookQueue(userID, zoneID uint) (*Queue, error)
 	GetQueueByNumber(queueNumber int, userID uint) (*Queue, error)
-	GetQueueHistory(userID uint) ([]Queue, error)
+	GetQueueHistory(userID uint, page, limit int) ([]Queue, int64, error)
 	CancelQueue(id, userID uint) error
 	GetQueuesByZone(zoneID uint) ([]Queue, error)
 	CallQueue(id uint) (*Queue, error)

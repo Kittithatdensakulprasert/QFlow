@@ -22,9 +22,9 @@ type mockNotificationService struct {
 	deleteErr     error
 }
 
-func (m *mockNotificationService) GetNotifications(userID uint) ([]domain.Notification, error) {
+func (m *mockNotificationService) GetNotifications(userID uint, page, limit int) ([]domain.Notification, int64, error) {
 	if m.getErr != nil {
-		return nil, m.getErr
+		return nil, 0, m.getErr
 	}
 
 	result := make([]domain.Notification, 0)
@@ -33,7 +33,7 @@ func (m *mockNotificationService) GetNotifications(userID uint) ([]domain.Notifi
 			result = append(result, n)
 		}
 	}
-	return result, nil
+	return result, int64(len(result)), nil
 }
 
 func (m *mockNotificationService) SendNotification(userID uint, message string) (*domain.Notification, error) {
@@ -100,13 +100,19 @@ func TestGetNotifications(t *testing.T) {
 		t.Fatalf("expected status %d, got %d", http.StatusOK, res.Code)
 	}
 
-	var notifications []domain.Notification
-	if err := json.NewDecoder(res.Body).Decode(&notifications); err != nil {
+	var response struct {
+		Data       []domain.Notification `json:"data"`
+		Pagination map[string]any        `json:"pagination"`
+	}
+	if err := json.NewDecoder(res.Body).Decode(&response); err != nil {
 		t.Fatalf("decode notifications: %v", err)
 	}
 
-	if len(notifications) != 1 || notifications[0].ID != 1 {
-		t.Fatalf("unexpected notifications: %+v", notifications)
+	if len(response.Data) != 1 || response.Data[0].ID != 1 {
+		t.Fatalf("unexpected notifications: %+v", response.Data)
+	}
+	if response.Pagination["total"] == nil {
+		t.Fatalf("expected pagination metadata")
 	}
 }
 

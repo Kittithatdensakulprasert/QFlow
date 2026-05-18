@@ -13,7 +13,8 @@ type Category struct {
 }
 
 type CategoryRepository interface {
-	FindAll(ctx context.Context) ([]Category, error)
+	FindAll(ctx context.Context, offset, limit int) ([]Category, error)
+	Count(ctx context.Context) (int64, error)
 	FindByID(ctx context.Context, id uint) (*Category, error)
 	Create(ctx context.Context, category *Category) error
 	Update(ctx context.Context, category *Category) error
@@ -22,7 +23,7 @@ type CategoryRepository interface {
 }
 
 type CategoryService interface {
-	GetCategories(ctx context.Context) ([]Category, error)
+	GetCategories(ctx context.Context, page, limit int) ([]Category, int64, error)
 	GetCategory(ctx context.Context, id uint) (*Category, error)
 	CreateCategory(ctx context.Context, name string) (*Category, error)
 	UpdateCategory(ctx context.Context, id uint, name string) (*Category, error)

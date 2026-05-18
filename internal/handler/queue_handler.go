@@ -68,7 +68,14 @@ func (h *QueueHandler) GetHistory(c *gin.Context) {
 		respondError(c, http.StatusUnauthorized, "UNAUTHORIZED", "authentication required")
 		return
 	}
-	queues, err := h.svc.GetQueueHistory(userID)
+
+	page, limit, err := parsePagination(c)
+	if err != nil {
+		respondError(c, http.StatusBadRequest, "INVALID_PAGINATION", err.Error())
+		return
+	}
+
+	queues, total, err := h.svc.GetQueueHistory(userID, page, limit)
 	if err != nil {
 		if errors.Is(err, service.ErrInvalidUserID) {
 			respondError(c, http.StatusBadRequest, "INVALID_INPUT", err.Error())
@@ -77,7 +84,10 @@ func (h *QueueHandler) GetHistory(c *gin.Context) {
 		respondError(c, http.StatusInternalServerError, "INTERNAL_SERVER_ERROR", "internal server error")
 		return
 	}
-	c.JSON(http.StatusOK, queues)
+	c.JSON(http.StatusOK, gin.H{
+		"data":       queues,
+		"pagination": buildPaginationMeta(page, limit, total),
+	})
 }
 
 // GET /api/queues/:queueNumber

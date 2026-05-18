@@ -13,7 +13,8 @@ type Notification struct {
 }
 
 type NotificationRepository interface {
-	FindByUserID(userID uint) ([]Notification, error)
+	FindByUserID(userID uint, offset, limit int) ([]Notification, error)
+	CountByUserID(userID uint) (int64, error)
 	FindByID(id uint) (*Notification, error)
 	Create(n *Notification) error
 	MarkRead(id uint) error
@@ -21,7 +22,7 @@ type NotificationRepository interface {
 }
 
 type NotificationService interface {
-	GetNotifications(userID uint) ([]Notification, error)
+	GetNotifications(userID uint, page, limit int) ([]Notification, int64, error)
 	SendNotification(userID uint, message string) (*Notification, error)
 	MarkNotificationRead(id, userID uint) error
 	DeleteNotification(id, userID uint) error

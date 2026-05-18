@@ -18,8 +18,19 @@ func NewNotificationService(repo domain.NotificationRepository) domain.Notificat
 	return &notificationService{repo: repo}
 }
 
-func (s *notificationService) GetNotifications(userID uint) ([]domain.Notification, error) {
-	return s.repo.FindByUserID(userID)
+func (s *notificationService) GetNotifications(userID uint, page, limit int) ([]domain.Notification, int64, error) {
+	offset := (page - 1) * limit
+	notifications, err := s.repo.FindByUserID(userID, offset, limit)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	total, err := s.repo.CountByUserID(userID)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return notifications, total, nil
 }
 
 func (s *notificationService) SendNotification(userID uint, message string) (*domain.Notification, error) {

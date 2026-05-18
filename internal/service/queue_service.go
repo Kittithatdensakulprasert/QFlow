@@ -78,11 +78,23 @@ func (s *queueService) GetQueueByNumber(queueNumber int, userID uint) (*domain.Q
 	return queue, nil
 }
 
-func (s *queueService) GetQueueHistory(userID uint) ([]domain.Queue, error) {
+func (s *queueService) GetQueueHistory(userID uint, page, limit int) ([]domain.Queue, int64, error) {
 	if userID == 0 {
-		return nil, ErrInvalidUserID
+		return nil, 0, ErrInvalidUserID
 	}
-	return s.repo.FindByUserID(userID)
+
+	offset := (page - 1) * limit
+	queues, err := s.repo.FindByUserID(userID, offset, limit)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	total, err := s.repo.CountByUserID(userID)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return queues, total, nil
 }
 
 func (s *queueService) CancelQueue(id, userID uint) error {

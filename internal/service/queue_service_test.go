@@ -79,14 +79,31 @@ func (m *mockQueueRepo) FindByID(id uint) (*domain.Queue, error) {
 	return &cp, nil
 }
 
-func (m *mockQueueRepo) FindByUserID(userID uint) ([]domain.Queue, error) {
+func (m *mockQueueRepo) FindByUserID(userID uint, offset, limit int) ([]domain.Queue, error) {
 	var result []domain.Queue
 	for _, q := range m.queues {
 		if q.UserID == userID {
 			result = append(result, *q)
 		}
 	}
-	return result, nil
+	if offset >= len(result) {
+		return []domain.Queue{}, nil
+	}
+	end := offset + limit
+	if end > len(result) {
+		end = len(result)
+	}
+	return result[offset:end], nil
+}
+
+func (m *mockQueueRepo) CountByUserID(userID uint) (int64, error) {
+	var count int64
+	for _, q := range m.queues {
+		if q.UserID == userID {
+			count++
+		}
+	}
+	return count, nil
 }
 
 func (m *mockQueueRepo) UpdateStatus(id uint, status string) error {
@@ -417,7 +434,7 @@ func TestGetQueuesByZone_EmptyZone(t *testing.T) {
 func TestGetQueueHistory_Success(t *testing.T) {
 	svc := newService()
 
-	queues, err := svc.GetQueueHistory(99)
+	queues, total, err := svc.GetQueueHistory(99, 1, 20)
 
 	if err != nil {
 		t.Fatal("expected success, got:", err)
@@ -425,17 +442,23 @@ func TestGetQueueHistory_Success(t *testing.T) {
 	if len(queues) == 0 {
 		t.Fatal("expected history, got empty")
 	}
+	if total == 0 {
+		t.Fatal("expected total > 0")
+	}
 }
 
 func TestGetQueueHistory_NoHistory(t *testing.T) {
 	svc := newService()
 
-	queues, err := svc.GetQueueHistory(777)
+	queues, total, err := svc.GetQueueHistory(777, 1, 20)
 
 	if err != nil {
 		t.Fatal("expected no error, got:", err)
 	}
 	if len(queues) != 0 {
 		t.Fatalf("expected empty history, got %d", len(queues))
+	}
+	if total != 0 {
+		t.Fatalf("expected total 0, got %d", total)
 	}
 }

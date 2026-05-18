@@ -28,13 +28,16 @@ func (h *CategoryHandler) GetCategories(c *gin.Context) {
 		return
 	}
 
-	categories, err := h.service.GetCategories(c.Request.Context())
+	categories, total, err := h.service.GetCategories(c.Request.Context(), page, limit)
 	if err != nil {
 		respondError(c, http.StatusInternalServerError, "INTERNAL_SERVER_ERROR", "failed to get categories")
 		return
 	}
 
-	c.JSON(http.StatusOK, paginateSlice(categories, page, limit))
+	c.JSON(http.StatusOK, gin.H{
+		"data":       categories,
+		"pagination": buildPaginationMeta(page, limit, total),
+	})
 }
 
 func (h *CategoryHandler) GetCategory(c *gin.Context) {

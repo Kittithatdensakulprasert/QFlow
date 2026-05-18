@@ -17,14 +17,31 @@ func newMockRepo() *mockNotificationRepo {
 	return &mockNotificationRepo{nextID: 1}
 }
 
-func (m *mockNotificationRepo) FindByUserID(userID uint) ([]domain.Notification, error) {
+func (m *mockNotificationRepo) FindByUserID(userID uint, offset, limit int) ([]domain.Notification, error) {
 	var result []domain.Notification
 	for _, n := range m.notifications {
 		if n.UserID == userID {
 			result = append(result, n)
 		}
 	}
-	return result, nil
+	if offset >= len(result) {
+		return []domain.Notification{}, nil
+	}
+	end := offset + limit
+	if end > len(result) {
+		end = len(result)
+	}
+	return result[offset:end], nil
+}
+
+func (m *mockNotificationRepo) CountByUserID(userID uint) (int64, error) {
+	var count int64
+	for _, n := range m.notifications {
+		if n.UserID == userID {
+			count++
+		}
+	}
+	return count, nil
 }
 
 func (m *mockNotificationRepo) FindByID(id uint) (*domain.Notification, error) {
@@ -71,12 +88,15 @@ func TestGetNotifications(t *testing.T) {
 	repo.Create(&domain.Notification{UserID: 1, Message: "world"})
 	repo.Create(&domain.Notification{UserID: 2, Message: "other"})
 
-	result, err := svc.GetNotifications(1)
+	result, total, err := svc.GetNotifications(1, 1, 20)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if len(result) != 2 {
 		t.Errorf("expected 2 notifications, got %d", len(result))
+	}
+	if total != 2 {
+		t.Errorf("expected total 2, got %d", total)
 	}
 }
 
@@ -84,12 +104,15 @@ func TestGetNotifications_Empty(t *testing.T) {
 	repo := newMockRepo()
 	svc := service.NewNotificationService(repo)
 
-	result, err := svc.GetNotifications(99)
+	result, total, err := svc.GetNotifications(99, 1, 20)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if len(result) != 0 {
 		t.Errorf("expected 0 notifications, got %d", len(result))
+	}
+	if total != 0 {
+		t.Errorf("expected total 0, got %d", total)
 	}
 }
 
@@ -184,7 +207,7 @@ func TestDeleteNotification(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	notifications, _ := svc.GetNotifications(1)
+	notifications, _, _ := svc.GetNotifications(1, 1, 20)
 	if len(notifications) != 0 {
 		t.Error("expected notification to be deleted")
 	}

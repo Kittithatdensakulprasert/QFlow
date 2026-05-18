@@ -33,9 +33,9 @@ func (m *mockQueueService) BookQueue(userID, zoneID uint) (*domain.Queue, error)
 	return &queue, nil
 }
 
-func (m *mockQueueService) GetQueueHistory(userID uint) ([]domain.Queue, error) {
+func (m *mockQueueService) GetQueueHistory(userID uint, page, limit int) ([]domain.Queue, int64, error) {
 	if m.err != nil {
-		return nil, m.err
+		return nil, 0, m.err
 	}
 	result := []domain.Queue{}
 	for _, queue := range m.queues {
@@ -43,7 +43,7 @@ func (m *mockQueueService) GetQueueHistory(userID uint) ([]domain.Queue, error) 
 			result = append(result, queue)
 		}
 	}
-	return result, nil
+	return result, int64(len(result)), nil
 }
 
 func (m *mockQueueService) GetQueue(queueNumber int) (*domain.Queue, error) {
@@ -180,13 +180,19 @@ func TestGetHistory(t *testing.T) {
 		t.Fatalf("expected status %d, got %d", http.StatusOK, res.Code)
 	}
 
-	var queues []interface{}
-	if err := json.NewDecoder(res.Body).Decode(&queues); err != nil {
+	var response struct {
+		Data       []domain.Queue `json:"data"`
+		Pagination map[string]any `json:"pagination"`
+	}
+	if err := json.NewDecoder(res.Body).Decode(&response); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
 
-	if len(queues) == 0 {
+	if len(response.Data) == 0 {
 		t.Fatalf("expected at least one queue in response")
+	}
+	if response.Pagination["total"] == nil {
+		t.Fatalf("expected pagination metadata")
 	}
 }
 

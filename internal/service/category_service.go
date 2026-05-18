@@ -22,8 +22,19 @@ func NewCategoryService(repo domain.CategoryRepository) domain.CategoryService {
 	return &categoryService{repo: repo}
 }
 
-func (s *categoryService) GetCategories(ctx context.Context) ([]domain.Category, error) {
-	return s.repo.FindAll(ctx)
+func (s *categoryService) GetCategories(ctx context.Context, page, limit int) ([]domain.Category, int64, error) {
+	offset := (page - 1) * limit
+	categories, err := s.repo.FindAll(ctx, offset, limit)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	total, err := s.repo.Count(ctx)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return categories, total, nil
 }
 
 func (s *categoryService) GetCategory(ctx context.Context, id uint) (*domain.Category, error) {
