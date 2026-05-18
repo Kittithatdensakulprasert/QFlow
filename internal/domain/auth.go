@@ -1,7 +1,16 @@
 package domain
 
 import (
+	"errors"
 	"time"
+)
+
+var (
+	ErrPhoneRequired   = errors.New("phone number is required")
+	ErrPhoneInvalid    = errors.New("phone number format is invalid")
+	ErrCodeRequired    = errors.New("code is required")
+	ErrNameRequired    = errors.New("name is required")
+	ErrOTPCodeRequired = errors.New("OTP code is required")
 )
 
 type User struct {

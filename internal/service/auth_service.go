@@ -9,14 +9,6 @@ import (
 	"qflow/internal/jwt"
 )
 
-var (
-	ErrPhoneRequired   = errors.New("phone number is required")
-	ErrPhoneInvalid    = errors.New("phone number format is invalid")
-	ErrCodeRequired    = errors.New("code is required")
-	ErrNameRequired    = errors.New("name is required")
-	ErrOTPCodeRequired = errors.New("OTP code is required")
-)
-
 var phonePattern = regexp.MustCompile(`^0[0-9]{9}$`)
 
 func isValidPhone(phone string) bool {
@@ -37,10 +29,10 @@ func NewAuthService(authRepo domain.AuthRepository, jwtManager *jwt.JWTManager) 
 
 func (s *authService) RequestOTP(phone string) (*domain.OTP, error) {
 	if phone == "" {
-		return nil, ErrPhoneRequired
+		return nil, domain.ErrPhoneRequired
 	}
 	if !isValidPhone(phone) {
-		return nil, ErrPhoneInvalid
+		return nil, domain.ErrPhoneInvalid
 	}
 
 	otp, err := s.authRepo.CreateOTP(phone)
@@ -53,14 +45,14 @@ func (s *authService) RequestOTP(phone string) (*domain.OTP, error) {
 
 func (s *authService) VerifyOTP(phone, code string) (*domain.User, string, error) {
 	if phone == "" {
-		return nil, "", ErrPhoneRequired
+		return nil, "", domain.ErrPhoneRequired
 	}
 	if !isValidPhone(phone) {
-		return nil, "", ErrPhoneInvalid
+		return nil, "", domain.ErrPhoneInvalid
 	}
 
 	if code == "" {
-		return nil, "", ErrCodeRequired
+		return nil, "", domain.ErrCodeRequired
 	}
 
 	otp, err := s.authRepo.FindValidOTP(phone, code)
@@ -99,14 +91,14 @@ func (s *authService) VerifyOTP(phone, code string) (*domain.User, string, error
 
 func (s *authService) RegisterUser(phone, name, role, otpCode string) (*domain.User, string, error) {
 	if phone == "" {
-		return nil, "", ErrPhoneRequired
+		return nil, "", domain.ErrPhoneRequired
 	}
 	if !isValidPhone(phone) {
-		return nil, "", ErrPhoneInvalid
+		return nil, "", domain.ErrPhoneInvalid
 	}
 
 	if name == "" {
-		return nil, "", ErrNameRequired
+		return nil, "", domain.ErrNameRequired
 	}
 
 	// Force role to be "user" for security - role escalation should be handled by admin-only endpoints
@@ -119,7 +111,7 @@ func (s *authService) RegisterUser(phone, name, role, otpCode string) (*domain.U
 	}
 
 	if otpCode == "" {
-		return nil, "", ErrOTPCodeRequired
+		return nil, "", domain.ErrOTPCodeRequired
 	}
 
 	// SECURITY: Check if there's a valid OTP for this phone

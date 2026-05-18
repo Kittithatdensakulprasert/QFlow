@@ -4,7 +4,6 @@ import (
 	"errors"
 	"net/http"
 	"qflow/internal/domain"
-	"qflow/internal/service"
 
 	"github.com/gin-gonic/gin"
 )
@@ -29,7 +28,7 @@ func (h *AuthHandler) RequestOTP(c *gin.Context) {
 
 	otp, err := h.authService.RequestOTP(req.Phone)
 	if err != nil {
-		if errors.Is(err, service.ErrPhoneRequired) || errors.Is(err, service.ErrPhoneInvalid) {
+		if errors.Is(err, domain.ErrPhoneRequired) || errors.Is(err, domain.ErrPhoneInvalid) {
 			respondError(c, http.StatusBadRequest, "INVALID_PHONE", err.Error())
 			return
 		}
@@ -59,9 +58,9 @@ func (h *AuthHandler) VerifyOTP(c *gin.Context) {
 
 	user, token, err := h.authService.VerifyOTP(req.Phone, req.Code)
 	if err != nil {
-		if errors.Is(err, service.ErrPhoneRequired) ||
-			errors.Is(err, service.ErrPhoneInvalid) ||
-			errors.Is(err, service.ErrCodeRequired) {
+		if errors.Is(err, domain.ErrPhoneRequired) ||
+			errors.Is(err, domain.ErrPhoneInvalid) ||
+			errors.Is(err, domain.ErrCodeRequired) {
 			respondError(c, http.StatusBadRequest, "INVALID_INPUT", err.Error())
 			return
 		}
@@ -90,6 +89,13 @@ func (h *AuthHandler) Register(c *gin.Context) {
 
 	user, token, err := h.authService.RegisterUser(req.Phone, req.Name, req.Role, req.OTPCode)
 	if err != nil {
+		if errors.Is(err, domain.ErrPhoneRequired) ||
+			errors.Is(err, domain.ErrPhoneInvalid) ||
+			errors.Is(err, domain.ErrNameRequired) ||
+			errors.Is(err, domain.ErrOTPCodeRequired) {
+			respondError(c, http.StatusBadRequest, "INVALID_INPUT", err.Error())
+			return
+		}
 		respondError(c, http.StatusBadRequest, "REGISTRATION_FAILED", err.Error())
 		return
 	}
