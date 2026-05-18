@@ -9,7 +9,7 @@ type User struct {
 	ID        uint      `gorm:"primaryKey" json:"id"`
 	Phone     string    `gorm:"uniqueIndex;not null" json:"phone"`
 	Name      string    `json:"name"`
-	Role      string    `gorm:"default:user" json:"role"`
+	Role      string    `gorm:"default:user" json:"role"` // user, provider, admin
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }

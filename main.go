@@ -3,6 +3,10 @@ package main
 import (
 	"context"
 	"log"
+	"net/http"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"qflow/config"
 	"qflow/db"
@@ -17,6 +21,9 @@ import (
 )
 
 func main() {
+	appCtx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
 	cfg := config.Load()
 	blocklist := []string{"", "secret", "your-secret-key-here", "change-me-to-a-long-random-jwt-secret-for-local-dev"} //nolint:gosec // G101: blocklist of weak values, not actual credentials
 	isWeak := false
@@ -48,13 +55,27 @@ func main() {
 	jwtManager := jwt.NewJWTManager(cfg.JWTSecret)
 	authSvc := service.NewAuthService(authRepo, jwtManager)
 	otpCleanupJob := service.NewOTPCleanupJob(authRepo, cfg.ParsedOTPCleanupInterval(), nil)
-	otpCleanupJob.Start(context.Background())
+	otpCleanupJob.Start(appCtx)
 
 	r := gin.Default()
 	router.Setup(r, providerSvc, queueSvc, notificationSvc, authSvc, categorySvc, jwtManager, cfg.ExposeOTPInResponse())
 	swagger.Register(r)
 
-	if err := r.Run(":" + cfg.Port); err != nil {
+	srv := &http.Server{
+		Addr:    ":" + cfg.Port,
+		Handler: r,
+	}
+
+	go func() {
+		<-appCtx.Done()
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		if err := srv.Shutdown(shutdownCtx); err != nil {
+			log.Printf("graceful shutdown failed: %v", err)
+		}
+	}()
+
+	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		log.Fatalf("failed to start server: %v", err)
 	}
 }
