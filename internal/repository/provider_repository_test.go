@@ -7,7 +7,9 @@ import (
 	"qflow/internal/domain"
 )
 
-func seedCategory(t *testing.T, db interface{ Create(ctx context.Context, c *domain.Category) error }) *domain.Category {
+func seedCategory(t *testing.T, db interface {
+	Create(ctx context.Context, c *domain.Category) error
+}) *domain.Category {
 	cat := &domain.Category{Name: "TestCat"}
 	if err := db.Create(context.Background(), cat); err != nil {
 		panic(err)
