@@ -29,7 +29,8 @@ type QueueRepository interface {
 	CreateWithNextQueueNumber(ctx context.Context, queue *Queue) error
 	FindByQueueNumber(ctx context.Context, queueNumber int) (*Queue, error)
 	FindByID(ctx context.Context, id uint) (*Queue, error)
-	FindByUserID(ctx context.Context, userID uint) ([]Queue, error)
+	FindByUserID(ctx context.Context, userID uint, offset, limit int) ([]Queue, error)
+	CountByUserID(ctx context.Context, userID uint) (int64, error)
 	UpdateStatus(ctx context.Context, id uint, status string) error
 	GetByZoneID(ctx context.Context, zoneID uint) ([]Queue, error)
 }
@@ -37,7 +38,7 @@ type QueueRepository interface {
 type QueueService interface {
 	BookQueue(ctx context.Context, userID, zoneID uint) (*Queue, error)
 	GetQueueByNumber(ctx context.Context, queueNumber int, userID uint) (*Queue, error)
-	GetQueueHistory(ctx context.Context, userID uint) ([]Queue, error)
+	GetQueueHistory(ctx context.Context, userID uint, page, limit int) ([]Queue, int64, error)
 	CancelQueue(ctx context.Context, id, userID uint) error
 	GetQueuesByZone(ctx context.Context, zoneID uint) ([]Queue, error)
 	CallQueue(ctx context.Context, id uint) (*Queue, error)

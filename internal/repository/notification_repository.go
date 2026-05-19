@@ -15,10 +15,21 @@ func NewNotificationRepository(db *gorm.DB) domain.NotificationRepository {
 	return &notificationRepository{db: db}
 }
 
-func (r *notificationRepository) FindByUserID(ctx context.Context, userID uint) ([]domain.Notification, error) {
+func (r *notificationRepository) FindByUserID(ctx context.Context, userID uint, offset, limit int) ([]domain.Notification, error) {
 	var notifications []domain.Notification
-	err := r.db.WithContext(ctx).Where("user_id = ?", userID).Order("created_at desc").Find(&notifications).Error
+	err := r.db.WithContext(ctx).
+		Where("user_id = ?", userID).
+		Order("created_at desc").
+		Offset(offset).
+		Limit(limit).
+		Find(&notifications).Error
 	return notifications, err
+}
+
+func (r *notificationRepository) CountByUserID(ctx context.Context, userID uint) (int64, error) {
+	var total int64
+	err := r.db.WithContext(ctx).Model(&domain.Notification{}).Where("user_id = ?", userID).Count(&total).Error
+	return total, err
 }
 
 func (r *notificationRepository) FindByID(ctx context.Context, id uint) (*domain.Notification, error) {

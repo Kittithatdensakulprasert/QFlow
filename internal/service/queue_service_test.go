@@ -96,7 +96,7 @@ func (m *mockQueueRepo) FindByID(_ context.Context, id uint) (*domain.Queue, err
 	return &cp, nil
 }
 
-func (m *mockQueueRepo) FindByUserID(_ context.Context, userID uint) ([]domain.Queue, error) {
+func (m *mockQueueRepo) FindByUserID(_ context.Context, userID uint, offset, limit int) ([]domain.Queue, error) {
 	if m.findByUserErr != nil {
 		return nil, m.findByUserErr
 	}
@@ -106,7 +106,24 @@ func (m *mockQueueRepo) FindByUserID(_ context.Context, userID uint) ([]domain.Q
 			result = append(result, *q)
 		}
 	}
-	return result, nil
+	if offset >= len(result) {
+		return []domain.Queue{}, nil
+	}
+	end := offset + limit
+	if end > len(result) {
+		end = len(result)
+	}
+	return result[offset:end], nil
+}
+
+func (m *mockQueueRepo) CountByUserID(_ context.Context, userID uint) (int64, error) {
+	var count int64
+	for _, q := range m.queues {
+		if q.UserID == userID {
+			count++
+		}
+	}
+	return count, nil
 }
 
 func (m *mockQueueRepo) UpdateStatus(_ context.Context, id uint, status string) error {
@@ -603,7 +620,7 @@ func TestGetQueuesByZone_EmptyZone(t *testing.T) {
 func TestGetQueueHistory_Success(t *testing.T) {
 	svc := newService()
 
-	queues, err := svc.GetQueueHistory(context.Background(), 99)
+	queues, total, err := svc.GetQueueHistory(context.Background(), 99, 1, 20)
 
 	if err != nil {
 		t.Fatal("expected success, got:", err)
@@ -611,12 +628,15 @@ func TestGetQueueHistory_Success(t *testing.T) {
 	if len(queues) == 0 {
 		t.Fatal("expected history, got empty")
 	}
+	if total == 0 {
+		t.Fatal("expected total > 0")
+	}
 }
 
 func TestGetQueueHistory_NoHistory(t *testing.T) {
 	svc := newService()
 
-	queues, err := svc.GetQueueHistory(context.Background(), 777)
+	queues, total, err := svc.GetQueueHistory(context.Background(), 777, 1, 20)
 
 	if err != nil {
 		t.Fatal("expected no error, got:", err)
@@ -624,12 +644,15 @@ func TestGetQueueHistory_NoHistory(t *testing.T) {
 	if len(queues) != 0 {
 		t.Fatalf("expected empty history, got %d", len(queues))
 	}
+	if total != 0 {
+		t.Fatalf("expected total 0, got %d", total)
+	}
 }
 
 func TestGetQueueHistory_InvalidUserID(t *testing.T) {
 	svc := newService()
 
-	_, err := svc.GetQueueHistory(context.Background(), 0)
+	_, _, err := svc.GetQueueHistory(context.Background(), 0, 1, 20)
 	if !errors.Is(err, ErrInvalidUserID) {
 		t.Fatalf("expected ErrInvalidUserID, got: %v", err)
 	}

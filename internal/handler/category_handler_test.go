@@ -19,12 +19,12 @@ type mockCategoryService struct {
 	err        error
 }
 
-func (m *mockCategoryService) GetCategories(ctx context.Context) ([]domain.Category, error) {
+func (m *mockCategoryService) GetCategories(ctx context.Context, page, limit int) ([]domain.Category, int64, error) {
 	if m.err != nil {
-		return nil, m.err
+		return nil, 0, m.err
 	}
 
-	return m.categories, nil
+	return m.categories, int64(len(m.categories)), nil
 }
 
 func (m *mockCategoryService) GetCategory(ctx context.Context, id uint) (*domain.Category, error) {
@@ -92,13 +92,19 @@ func TestGetCategories(t *testing.T) {
 		t.Fatalf("expected status %d, got %d", http.StatusOK, res.Code)
 	}
 
-	var categories []domain.Category
-	if err := json.NewDecoder(res.Body).Decode(&categories); err != nil {
+	var response struct {
+		Data       []domain.Category `json:"data"`
+		Pagination map[string]any    `json:"pagination"`
+	}
+	if err := json.NewDecoder(res.Body).Decode(&response); err != nil {
 		t.Fatalf("decode categories: %v", err)
 	}
 
-	if len(categories) != 1 || categories[0].Name != "ชาบู" {
-		t.Fatalf("unexpected categories: %+v", categories)
+	if len(response.Data) != 1 || response.Data[0].Name != "ชาบู" {
+		t.Fatalf("unexpected categories: %+v", response.Data)
+	}
+	if response.Pagination["total"] == nil {
+		t.Fatalf("expected pagination metadata")
 	}
 }
 

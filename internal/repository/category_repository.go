@@ -18,14 +18,22 @@ func NewCategoryGormRepository(db *gorm.DB) domain.CategoryRepository {
 	return &categoryGormRepository{db: db}
 }
 
-func (r *categoryGormRepository) FindAll(ctx context.Context) ([]domain.Category, error) {
+func (r *categoryGormRepository) FindAll(ctx context.Context, offset, limit int) ([]domain.Category, error) {
 	var categories []domain.Category
 
 	err := r.db.WithContext(ctx).
 		Order("id ASC").
+		Offset(offset).
+		Limit(limit).
 		Find(&categories).Error
 
 	return categories, err
+}
+
+func (r *categoryGormRepository) Count(ctx context.Context) (int64, error) {
+	var total int64
+	err := r.db.WithContext(ctx).Model(&domain.Category{}).Count(&total).Error
+	return total, err
 }
 
 func (r *categoryGormRepository) FindByID(ctx context.Context, id uint) (*domain.Category, error) {

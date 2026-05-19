@@ -16,7 +16,8 @@ type Notification struct {
 }
 
 type NotificationRepository interface {
-	FindByUserID(ctx context.Context, userID uint) ([]Notification, error)
+	FindByUserID(ctx context.Context, userID uint, offset, limit int) ([]Notification, error)
+	CountByUserID(ctx context.Context, userID uint) (int64, error)
 	FindByID(ctx context.Context, id uint) (*Notification, error)
 	Create(ctx context.Context, n *Notification) error
 	MarkRead(ctx context.Context, id uint) error
@@ -24,7 +25,7 @@ type NotificationRepository interface {
 }
 
 type NotificationService interface {
-	GetNotifications(ctx context.Context, userID uint) ([]Notification, error)
+	GetNotifications(ctx context.Context, userID uint, page, limit int) ([]Notification, int64, error)
 	SendNotification(ctx context.Context, userID uint, message string) (*Notification, error)
 	MarkNotificationRead(ctx context.Context, id, userID uint) error
 	DeleteNotification(ctx context.Context, id, userID uint) error

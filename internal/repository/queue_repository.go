@@ -68,14 +68,22 @@ func (r *queueRepository) FindByID(ctx context.Context, id uint) (*domain.Queue,
 	return &queue, err
 }
 
-func (r *queueRepository) FindByUserID(ctx context.Context, userID uint) ([]domain.Queue, error) {
+func (r *queueRepository) FindByUserID(ctx context.Context, userID uint, offset, limit int) ([]domain.Queue, error) {
 	var queues []domain.Queue
 	err := r.db.WithContext(ctx).
 		Preload("Zone").
 		Where("user_id = ?", userID).
 		Order("created_at desc").
+		Offset(offset).
+		Limit(limit).
 		Find(&queues).Error
 	return queues, err
+}
+
+func (r *queueRepository) CountByUserID(ctx context.Context, userID uint) (int64, error) {
+	var total int64
+	err := r.db.WithContext(ctx).Model(&domain.Queue{}).Where("user_id = ?", userID).Count(&total).Error
+	return total, err
 }
 
 func (r *queueRepository) UpdateStatus(ctx context.Context, id uint, status string) error {
