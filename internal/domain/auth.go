@@ -1,7 +1,23 @@
 package domain
 
 import (
+	"context"
+	"errors"
 	"time"
+)
+
+var (
+	ErrInvalidOTP      = errors.New("invalid or expired OTP")
+	ErrOTPAlreadyUsed  = errors.New("OTP has already been used or does not exist")
+	ErrUserNotFound    = errors.New("user not found")
+	ErrUserExists      = errors.New("user with this phone number already exists")
+	ErrPhoneRequired   = errors.New("phone number is required")
+	ErrCodeRequired    = errors.New("code is required")
+	ErrNameRequired    = errors.New("name is required")
+	ErrUserIDRequired  = errors.New("user ID is required")
+	ErrRoleNotAllowed  = errors.New("role changes are not allowed through this endpoint")
+	ErrPhoneInvalid    = errors.New("phone number format is invalid")
+	ErrOTPCodeRequired = errors.New("OTP code is required")
 )
 
 type User struct {
@@ -23,20 +39,20 @@ type OTP struct {
 }
 
 type AuthRepository interface {
-	CreateOTP(phone string) (*OTP, error)
-	FindValidOTP(phone, code string) (*OTP, error)
-	MarkOTPAsUsed(otpID uint) error
-	DeleteExpiredOTPs(now time.Time) (int64, error)
-	FindUserByPhone(phone string) (*User, error)
-	CreateUser(user *User) error
-	UpdateUser(user *User) error
-	FindUserByID(id uint) (*User, error)
+	CreateOTP(ctx context.Context, phone string) (*OTP, error)
+	FindValidOTP(ctx context.Context, phone, code string) (*OTP, error)
+	MarkOTPAsUsed(ctx context.Context, otpID uint) error
+	DeleteExpiredOTPs(ctx context.Context, now time.Time) (int64, error)
+	FindUserByPhone(ctx context.Context, phone string) (*User, error)
+	CreateUser(ctx context.Context, user *User) error
+	UpdateUser(ctx context.Context, user *User) error
+	FindUserByID(ctx context.Context, id uint) (*User, error)
 }
 
 type AuthService interface {
-	RequestOTP(phone string) (*OTP, error)
-	VerifyOTP(phone, code string) (*User, string, error)
-	RegisterUser(phone, name, role, otpCode string) (*User, string, error)
-	GetUserProfile(userID uint) (*User, error)
-	UpdateUserProfile(userID uint, name, role string) (*User, error)
+	RequestOTP(ctx context.Context, phone string) (*OTP, error)
+	VerifyOTP(ctx context.Context, phone, code string) (*User, string, error)
+	RegisterUser(ctx context.Context, phone, name, role, otpCode string) (*User, string, error)
+	GetUserProfile(ctx context.Context, userID uint) (*User, error)
+	UpdateUserProfile(ctx context.Context, userID uint, name, role string) (*User, error)
 }

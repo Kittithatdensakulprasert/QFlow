@@ -10,11 +10,6 @@ import (
 	"gorm.io/gorm"
 )
 
-var (
-	ErrCategoryRecordNotFound = errors.New("category record not found")
-	ErrCategoryDuplicate      = errors.New("category duplicate")
-)
-
 type categoryGormRepository struct {
 	db *gorm.DB
 }
@@ -23,14 +18,22 @@ func NewCategoryGormRepository(db *gorm.DB) domain.CategoryRepository {
 	return &categoryGormRepository{db: db}
 }
 
-func (r *categoryGormRepository) FindAll(ctx context.Context) ([]domain.Category, error) {
+func (r *categoryGormRepository) FindAll(ctx context.Context, offset, limit int) ([]domain.Category, error) {
 	var categories []domain.Category
 
 	err := r.db.WithContext(ctx).
 		Order("id ASC").
+		Offset(offset).
+		Limit(limit).
 		Find(&categories).Error
 
 	return categories, err
+}
+
+func (r *categoryGormRepository) Count(ctx context.Context) (int64, error) {
+	var total int64
+	err := r.db.WithContext(ctx).Model(&domain.Category{}).Count(&total).Error
+	return total, err
 }
 
 func (r *categoryGormRepository) FindByID(ctx context.Context, id uint) (*domain.Category, error) {
@@ -38,7 +41,7 @@ func (r *categoryGormRepository) FindByID(ctx context.Context, id uint) (*domain
 
 	err := r.db.WithContext(ctx).First(&category, id).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, ErrCategoryRecordNotFound
+		return nil, domain.ErrCategoryRecordNotFound
 	}
 
 	return &category, err
@@ -47,7 +50,7 @@ func (r *categoryGormRepository) FindByID(ctx context.Context, id uint) (*domain
 func (r *categoryGormRepository) Create(ctx context.Context, category *domain.Category) error {
 	err := r.db.WithContext(ctx).Create(category).Error
 	if isUniqueViolation(err) {
-		return ErrCategoryDuplicate
+		return domain.ErrCategoryDuplicate
 	}
 
 	return err
@@ -56,7 +59,7 @@ func (r *categoryGormRepository) Create(ctx context.Context, category *domain.Ca
 func (r *categoryGormRepository) Update(ctx context.Context, category *domain.Category) error {
 	err := r.db.WithContext(ctx).Save(category).Error
 	if isUniqueViolation(err) {
-		return ErrCategoryDuplicate
+		return domain.ErrCategoryDuplicate
 	}
 
 	return err
@@ -69,7 +72,7 @@ func (r *categoryGormRepository) Delete(ctx context.Context, id uint) error {
 	}
 
 	if result.RowsAffected == 0 {
-		return ErrCategoryRecordNotFound
+		return domain.ErrCategoryRecordNotFound
 	}
 
 	return nil

@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"qflow/internal/domain"
-	"qflow/internal/repository"
 	"strings"
 )
 
@@ -22,13 +21,24 @@ func NewCategoryService(repo domain.CategoryRepository) domain.CategoryService {
 	return &categoryService{repo: repo}
 }
 
-func (s *categoryService) GetCategories(ctx context.Context) ([]domain.Category, error) {
-	return s.repo.FindAll(ctx)
+func (s *categoryService) GetCategories(ctx context.Context, page, limit int) ([]domain.Category, int64, error) {
+	offset := (page - 1) * limit
+	categories, err := s.repo.FindAll(ctx, offset, limit)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	total, err := s.repo.Count(ctx)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return categories, total, nil
 }
 
 func (s *categoryService) GetCategory(ctx context.Context, id uint) (*domain.Category, error) {
 	category, err := s.repo.FindByID(ctx, id)
-	if errors.Is(err, repository.ErrCategoryRecordNotFound) {
+	if errors.Is(err, domain.ErrCategoryRecordNotFound) {
 		return nil, ErrCategoryNotFound
 	}
 
@@ -58,7 +68,7 @@ func (s *categoryService) CreateCategory(ctx context.Context, name string) (*dom
 	category := &domain.Category{Name: name}
 
 	if err := s.repo.Create(ctx, category); err != nil {
-		if errors.Is(err, repository.ErrCategoryDuplicate) {
+		if errors.Is(err, domain.ErrCategoryDuplicate) {
 			return nil, ErrCategoryDuplicate
 		}
 
@@ -76,7 +86,7 @@ func (s *categoryService) UpdateCategory(ctx context.Context, id uint, name stri
 	}
 
 	category, err := s.repo.FindByID(ctx, id)
-	if errors.Is(err, repository.ErrCategoryRecordNotFound) {
+	if errors.Is(err, domain.ErrCategoryRecordNotFound) {
 		return nil, ErrCategoryNotFound
 	}
 
@@ -98,7 +108,7 @@ func (s *categoryService) UpdateCategory(ctx context.Context, id uint, name stri
 	category.Name = name
 
 	if err := s.repo.Update(ctx, category); err != nil {
-		if errors.Is(err, repository.ErrCategoryDuplicate) {
+		if errors.Is(err, domain.ErrCategoryDuplicate) {
 			return nil, ErrCategoryDuplicate
 		}
 
@@ -110,7 +120,7 @@ func (s *categoryService) UpdateCategory(ctx context.Context, id uint, name stri
 
 func (s *categoryService) DeleteCategory(ctx context.Context, id uint) error {
 	_, err := s.repo.FindByID(ctx, id)
-	if errors.Is(err, repository.ErrCategoryRecordNotFound) {
+	if errors.Is(err, domain.ErrCategoryRecordNotFound) {
 		return ErrCategoryNotFound
 	}
 

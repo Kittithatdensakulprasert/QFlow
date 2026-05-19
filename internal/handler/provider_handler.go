@@ -33,7 +33,7 @@ func (h *ProviderHandler) CreateProvider(c *gin.Context) {
 		return
 	}
 
-	provider, err := h.svc.CreateProvider(req.Name, req.CategoryID)
+	provider, err := h.svc.CreateProvider(c.Request.Context(), req.Name, req.CategoryID)
 	if err != nil {
 		switch {
 		case errors.Is(err, service.ErrProviderNameRequired):
@@ -50,7 +50,7 @@ func (h *ProviderHandler) CreateProvider(c *gin.Context) {
 }
 
 func (h *ProviderHandler) GetProviders(c *gin.Context) {
-	providers, err := h.svc.GetProviders()
+	providers, err := h.svc.GetProviders(c.Request.Context())
 	if err != nil {
 		respondError(c, http.StatusInternalServerError, "INTERNAL_SERVER_ERROR", "internal server error")
 		return
@@ -60,7 +60,7 @@ func (h *ProviderHandler) GetProviders(c *gin.Context) {
 }
 
 func (h *ProviderHandler) CreateZone(c *gin.Context) {
-	providerID, ok := parseUintParam(c, "id", "invalid provider id")
+	providerID, ok := parseUintParam(c, "id", "INVALID_PROVIDER_ID", "invalid provider id")
 	if !ok {
 		return
 	}
@@ -71,7 +71,7 @@ func (h *ProviderHandler) CreateZone(c *gin.Context) {
 		return
 	}
 
-	zone, err := h.svc.CreateZone(providerID, req.Name)
+	zone, err := h.svc.CreateZone(c.Request.Context(), providerID, req.Name)
 	if err != nil {
 		switch {
 		case errors.Is(err, service.ErrZoneNameRequired):
@@ -88,12 +88,12 @@ func (h *ProviderHandler) CreateZone(c *gin.Context) {
 }
 
 func (h *ProviderHandler) GetZones(c *gin.Context) {
-	providerID, ok := parseUintParam(c, "id", "invalid provider id")
+	providerID, ok := parseUintParam(c, "id", "INVALID_PROVIDER_ID", "invalid provider id")
 	if !ok {
 		return
 	}
 
-	zones, err := h.svc.GetZones(providerID)
+	zones, err := h.svc.GetZones(c.Request.Context(), providerID)
 	if err != nil {
 		if errors.Is(err, service.ErrProviderNotFound) {
 			respondError(c, http.StatusNotFound, "PROVIDER_NOT_FOUND", err.Error())
@@ -107,12 +107,12 @@ func (h *ProviderHandler) GetZones(c *gin.Context) {
 }
 
 func (h *ProviderHandler) ToggleZone(c *gin.Context) {
-	zoneID, ok := parseUintParam(c, "id", "invalid zone id")
+	zoneID, ok := parseUintParam(c, "id", "INVALID_ZONE_ID", "invalid zone id")
 	if !ok {
 		return
 	}
 
-	zone, err := h.svc.ToggleZone(zoneID)
+	zone, err := h.svc.ToggleZone(c.Request.Context(), zoneID)
 	if err != nil {
 		if errors.Is(err, service.ErrProviderZoneNotFound) {
 			respondError(c, http.StatusNotFound, "ZONE_NOT_FOUND", err.Error())
