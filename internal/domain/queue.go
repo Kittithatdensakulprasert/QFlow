@@ -27,7 +27,7 @@ type Queue struct {
 type QueueRepository interface {
 	FindZoneByID(ctx context.Context, id uint) (*Zone, error)
 	CreateWithNextQueueNumber(ctx context.Context, queue *Queue) error
-	FindByQueueNumber(ctx context.Context, queueNumber int) (*Queue, error)
+	FindByQueueNumber(ctx context.Context, queueNumber int, userID uint) (*Queue, error)
 	FindByID(ctx context.Context, id uint) (*Queue, error)
 	FindByUserID(ctx context.Context, userID uint, offset, limit int) ([]Queue, error)
 	CountByUserID(ctx context.Context, userID uint) (int64, error)

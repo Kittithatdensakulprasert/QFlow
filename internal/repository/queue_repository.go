@@ -27,12 +27,13 @@ func (r *queueRepository) FindZoneByID(ctx context.Context, id uint) (*domain.Zo
 
 func (r *queueRepository) CreateWithNextQueueNumber(ctx context.Context, queue *domain.Queue) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Exec("SELECT pg_advisory_xact_lock(?)", int64(1001)).Error; err != nil { //nolint:gosec // G201: hardcoded lock key, not user input
+		lockKey := int64(queue.ZoneID) //#nosec G115
+		if err := tx.Exec("SELECT pg_advisory_xact_lock(?)", lockKey).Error; err != nil {
 			return err
 		}
 
 		var last domain.Queue
-		err := tx.Order("queue_number desc").First(&last).Error
+		err := tx.Where("zone_id = ?", queue.ZoneID).Order("queue_number desc").First(&last).Error
 		if err != nil && err != gorm.ErrRecordNotFound {
 			return err
 		}
@@ -46,11 +47,11 @@ func (r *queueRepository) CreateWithNextQueueNumber(ctx context.Context, queue *
 	})
 }
 
-func (r *queueRepository) FindByQueueNumber(ctx context.Context, queueNumber int) (*domain.Queue, error) {
+func (r *queueRepository) FindByQueueNumber(ctx context.Context, queueNumber int, userID uint) (*domain.Queue, error) {
 	var queue domain.Queue
 	err := r.db.WithContext(ctx).
 		Preload("Zone").
-		Where("queue_number = ?", queueNumber).
+		Where("queue_number = ? AND user_id = ?", queueNumber, userID).
 		Order("created_at desc").
 		First(&queue).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
