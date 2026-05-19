@@ -71,12 +71,12 @@ func (m *mockQueueRepo) CreateWithNextQueueNumber(_ context.Context, q *domain.Q
 	return nil
 }
 
-func (m *mockQueueRepo) FindByQueueNumber(_ context.Context, qn int) (*domain.Queue, error) {
+func (m *mockQueueRepo) FindByQueueNumber(_ context.Context, qn int, userID uint) (*domain.Queue, error) {
 	if m.findByNumErr != nil {
 		return nil, m.findByNumErr
 	}
 	for _, q := range m.queues {
-		if q.QueueNumber == qn {
+		if q.QueueNumber == qn && q.UserID == userID {
 			cp := *q
 			return &cp, nil
 		}
@@ -281,13 +281,13 @@ func TestGetQueueByNumber_GenericError(t *testing.T) {
 	}
 }
 
-func TestGetQueueByNumber_Forbidden(t *testing.T) {
+func TestGetQueueByNumber_NotOwner(t *testing.T) {
 	svc := newService()
 
 	_, err := svc.GetQueueByNumber(context.Background(), 5, 99) // queue 5 เป็นของ userID=88
 
-	if !errors.Is(err, ErrForbiddenQueue) {
-		t.Fatalf("expected ErrForbiddenQueue, got: %v", err)
+	if !errors.Is(err, ErrQueueNotFound) {
+		t.Fatalf("expected ErrQueueNotFound, got: %v", err)
 	}
 }
 

@@ -15,18 +15,22 @@ type rateLimitEntry struct {
 	windowEnd time.Time
 }
 
+const defaultMaxSize = 10_000
+
 type RateLimiter struct {
-	mu     sync.Mutex
-	store  map[string]*rateLimitEntry
-	limit  int
-	window time.Duration
+	mu      sync.Mutex
+	store   map[string]*rateLimitEntry
+	limit   int
+	window  time.Duration
+	maxSize int
 }
 
 func NewRateLimiter(limit int, window time.Duration) *RateLimiter {
 	rl := &RateLimiter{
-		store:  make(map[string]*rateLimitEntry),
-		limit:  limit,
-		window: window,
+		store:   make(map[string]*rateLimitEntry),
+		limit:   limit,
+		window:  window,
+		maxSize: defaultMaxSize,
 	}
 	go rl.cleanup()
 	return rl
@@ -55,6 +59,9 @@ func (rl *RateLimiter) Allow(key string) bool {
 	entry, exists := rl.store[key]
 
 	if !exists || now.After(entry.windowEnd) {
+		if !exists && len(rl.store) >= rl.maxSize {
+			return false
+		}
 		rl.store[key] = &rateLimitEntry{
 			count:     1,
 			windowEnd: now.Add(rl.window),

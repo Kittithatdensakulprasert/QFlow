@@ -64,15 +64,12 @@ func (s *queueService) GetQueueByNumber(ctx context.Context, queueNumber int, us
 		return nil, ErrInvalidUserID
 	}
 
-	queue, err := s.repo.FindByQueueNumber(ctx, queueNumber)
+	queue, err := s.repo.FindByQueueNumber(ctx, queueNumber, userID)
 	if err != nil {
 		if errors.Is(err, domain.ErrQueueRecordNotFound) {
 			return nil, ErrQueueNotFound
 		}
 		return nil, err
-	}
-	if queue.UserID != userID {
-		return nil, ErrForbiddenQueue
 	}
 	return queue, nil
 }
