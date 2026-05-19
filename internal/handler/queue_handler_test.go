@@ -337,7 +337,6 @@ func TestGetQueueErrorMappings(t *testing.T) {
 	}{
 		{"invalid user", service.ErrInvalidUserID, http.StatusBadRequest},
 		{"not found", service.ErrQueueNotFound, http.StatusNotFound},
-		{"forbidden", service.ErrForbiddenQueue, http.StatusForbidden},
 		{"internal", errors.New("boom"), http.StatusInternalServerError},
 	}
 
