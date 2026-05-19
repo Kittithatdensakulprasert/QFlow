@@ -2,6 +2,7 @@ package handler
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -20,35 +21,35 @@ type mockAuthService struct {
 	err     error
 }
 
-func (m *mockAuthService) RequestOTP(phone string) (*domain.OTP, error) {
+func (m *mockAuthService) RequestOTP(_ context.Context, phone string) (*domain.OTP, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
 	return m.otp, nil
 }
 
-func (m *mockAuthService) VerifyOTP(phone, code string) (*domain.User, string, error) {
+func (m *mockAuthService) VerifyOTP(_ context.Context, phone, code string) (*domain.User, string, error) {
 	if m.err != nil {
 		return nil, "", m.err
 	}
 	return m.user, m.token, nil
 }
 
-func (m *mockAuthService) RegisterUser(phone, name, role, otpCode string) (*domain.User, string, error) {
+func (m *mockAuthService) RegisterUser(_ context.Context, phone, name, role, otpCode string) (*domain.User, string, error) {
 	if m.err != nil {
 		return nil, "", m.err
 	}
 	return m.user, m.token, nil
 }
 
-func (m *mockAuthService) GetUserProfile(userID uint) (*domain.User, error) {
+func (m *mockAuthService) GetUserProfile(_ context.Context, userID uint) (*domain.User, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
 	return m.profile, nil
 }
 
-func (m *mockAuthService) UpdateUserProfile(userID uint, name, role string) (*domain.User, error) {
+func (m *mockAuthService) UpdateUserProfile(_ context.Context, userID uint, name, role string) (*domain.User, error) {
 	if m.err != nil {
 		return nil, m.err
 	}

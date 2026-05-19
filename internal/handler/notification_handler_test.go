@@ -2,6 +2,7 @@ package handler
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -22,7 +23,7 @@ type mockNotificationService struct {
 	deleteErr     error
 }
 
-func (m *mockNotificationService) GetNotifications(userID uint) ([]domain.Notification, error) {
+func (m *mockNotificationService) GetNotifications(_ context.Context, userID uint) ([]domain.Notification, error) {
 	if m.getErr != nil {
 		return nil, m.getErr
 	}
@@ -36,7 +37,7 @@ func (m *mockNotificationService) GetNotifications(userID uint) ([]domain.Notifi
 	return result, nil
 }
 
-func (m *mockNotificationService) SendNotification(userID uint, message string) (*domain.Notification, error) {
+func (m *mockNotificationService) SendNotification(_ context.Context, userID uint, message string) (*domain.Notification, error) {
 	if m.sendErr != nil {
 		return nil, m.sendErr
 	}
@@ -51,7 +52,7 @@ func (m *mockNotificationService) SendNotification(userID uint, message string) 
 	return &n, nil
 }
 
-func (m *mockNotificationService) MarkNotificationRead(id, userID uint) error {
+func (m *mockNotificationService) MarkNotificationRead(_ context.Context, id, userID uint) error {
 	if m.markErr != nil {
 		return m.markErr
 	}
@@ -69,7 +70,7 @@ func (m *mockNotificationService) MarkNotificationRead(id, userID uint) error {
 	return service.ErrNotificationNotFound
 }
 
-func (m *mockNotificationService) DeleteNotification(id, userID uint) error {
+func (m *mockNotificationService) DeleteNotification(_ context.Context, id, userID uint) error {
 	if m.deleteErr != nil {
 		return m.deleteErr
 	}
