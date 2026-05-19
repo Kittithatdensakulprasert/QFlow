@@ -1,7 +1,20 @@
 package domain
 
 import (
+	"errors"
 	"time"
+)
+
+var (
+	ErrInvalidOTP     = errors.New("invalid or expired OTP")
+	ErrOTPAlreadyUsed = errors.New("OTP has already been used or does not exist")
+	ErrUserNotFound   = errors.New("user not found")
+	ErrUserExists     = errors.New("user with this phone number already exists")
+	ErrPhoneRequired  = errors.New("phone number is required")
+	ErrCodeRequired   = errors.New("code is required")
+	ErrNameRequired   = errors.New("name is required")
+	ErrUserIDRequired = errors.New("user ID is required")
+	ErrRoleNotAllowed = errors.New("role changes are not allowed through this endpoint")
 )
 
 type User struct {
@@ -31,7 +44,6 @@ type AuthRepository interface {
 	CreateUser(user *User) error
 	UpdateUser(user *User) error
 	FindUserByID(id uint) (*User, error)
-	MarkOTPAsUsedAndCreateUser(otpID uint, user *User) error
 }
 
 type AuthService interface {

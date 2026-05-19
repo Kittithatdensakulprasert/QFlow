@@ -1,7 +1,6 @@
 package service
 
 import (
-	"errors"
 	"fmt"
 
 	"qflow/internal/domain"
@@ -22,7 +21,7 @@ func NewAuthService(authRepo domain.AuthRepository, jwtManager *jwt.JWTManager) 
 
 func (s *authService) RequestOTP(phone string) (*domain.OTP, error) {
 	if phone == "" {
-		return nil, errors.New("phone number is required")
+		return nil, domain.ErrPhoneRequired
 	}
 
 	otp, err := s.authRepo.CreateOTP(phone)
@@ -35,34 +34,34 @@ func (s *authService) RequestOTP(phone string) (*domain.OTP, error) {
 
 func (s *authService) VerifyOTP(phone, code string) (*domain.User, string, error) {
 	if phone == "" {
-		return nil, "", errors.New("phone number is required")
+		return nil, "", domain.ErrPhoneRequired
 	}
 
 	if code == "" {
-		return nil, "", errors.New("code is required")
+		return nil, "", domain.ErrCodeRequired
 	}
 
 	otp, err := s.authRepo.FindValidOTP(phone, code)
 	if err != nil {
-		return nil, "", errors.New("invalid or expired OTP")
+		return nil, "", domain.ErrInvalidOTP
+	}
+
+	// Mark OTP as used first to prevent reuse
+	if err := s.authRepo.MarkOTPAsUsed(otp.ID); err != nil {
+		return nil, "", err
 	}
 
 	// Find user - if not found, create new user
 	user, err := s.authRepo.FindUserByPhone(phone)
 	if err != nil {
-		// Auto-create user after OTP verification in a transaction
+		// Auto-create user after OTP verification
 		user = &domain.User{
 			Phone: phone,
 			Name:  phone,  // Default name to phone number
 			Role:  "user", // Default role
 		}
 
-		if err := s.authRepo.MarkOTPAsUsedAndCreateUser(otp.ID, user); err != nil {
-			return nil, "", err
-		}
-	} else {
-		// Mark OTP as used for existing user
-		if err := s.authRepo.MarkOTPAsUsed(otp.ID); err != nil {
+		if err := s.authRepo.CreateUser(user); err != nil {
 			return nil, "", err
 		}
 	}
@@ -78,11 +77,11 @@ func (s *authService) VerifyOTP(phone, code string) (*domain.User, string, error
 
 func (s *authService) RegisterUser(phone, name, role, otpCode string) (*domain.User, string, error) {
 	if phone == "" {
-		return nil, "", errors.New("phone number is required")
+		return nil, "", domain.ErrPhoneRequired
 	}
 
 	if name == "" {
-		return nil, "", errors.New("name is required")
+		return nil, "", domain.ErrNameRequired
 	}
 
 	// Force role to be "user" for security - role escalation should be handled by admin-only endpoints
@@ -91,17 +90,22 @@ func (s *authService) RegisterUser(phone, name, role, otpCode string) (*domain.U
 	// SECURITY: Check if user already exists
 	existingUser, err := s.authRepo.FindUserByPhone(phone)
 	if err == nil && existingUser != nil {
-		return nil, "", errors.New("user with this phone number already exists")
+		return nil, "", domain.ErrUserExists
 	}
 
 	if otpCode == "" {
-		return nil, "", errors.New("OTP code is required")
+		return nil, "", domain.ErrCodeRequired
 	}
 
 	// SECURITY: Check if there's a valid OTP for this phone
 	otp, err := s.authRepo.FindValidOTP(phone, otpCode)
 	if err != nil || otp == nil {
-		return nil, "", errors.New("phone number not verified. Please request OTP first")
+		return nil, "", domain.ErrInvalidOTP
+	}
+
+	// Mark OTP as used first to prevent reuse
+	if err := s.authRepo.MarkOTPAsUsed(otp.ID); err != nil {
+		return nil, "", err
 	}
 
 	// Create new user
@@ -111,8 +115,7 @@ func (s *authService) RegisterUser(phone, name, role, otpCode string) (*domain.U
 		Role:  role,
 	}
 
-	// Mark OTP as used and create user in a transaction to prevent reuse
-	if err := s.authRepo.MarkOTPAsUsedAndCreateUser(otp.ID, user); err != nil {
+	if err := s.authRepo.CreateUser(user); err != nil {
 		return nil, "", err
 	}
 
@@ -127,12 +130,12 @@ func (s *authService) RegisterUser(phone, name, role, otpCode string) (*domain.U
 
 func (s *authService) GetUserProfile(userID uint) (*domain.User, error) {
 	if userID == 0 {
-		return nil, errors.New("user ID is required")
+		return nil, domain.ErrUserIDRequired
 	}
 
 	user, err := s.authRepo.FindUserByID(userID)
 	if err != nil {
-		return nil, errors.New("user not found")
+		return nil, domain.ErrUserNotFound
 	}
 
 	return user, nil
@@ -140,12 +143,12 @@ func (s *authService) GetUserProfile(userID uint) (*domain.User, error) {
 
 func (s *authService) UpdateUserProfile(userID uint, name, role string) (*domain.User, error) {
 	if userID == 0 {
-		return nil, errors.New("user ID is required")
+		return nil, domain.ErrUserIDRequired
 	}
 
 	user, err := s.authRepo.FindUserByID(userID)
 	if err != nil {
-		return nil, errors.New("user not found")
+		return nil, domain.ErrUserNotFound
 	}
 
 	if name != "" {
@@ -156,7 +159,7 @@ func (s *authService) UpdateUserProfile(userID uint, name, role string) (*domain
 	// For now, prevent any role changes through this endpoint
 	// Role management should be handled by admin-only endpoints
 	if role != "" && role != user.Role {
-		return nil, errors.New("role changes are not allowed through this endpoint")
+		return nil, domain.ErrRoleNotAllowed
 	}
 
 	if err := s.authRepo.UpdateUser(user); err != nil {

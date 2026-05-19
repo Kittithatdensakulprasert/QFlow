@@ -2,7 +2,6 @@ package repository
 
 import (
 	"crypto/rand"
-	"errors"
 	"fmt"
 	"math/big"
 	"time"
@@ -58,7 +57,7 @@ func (r *authRepository) MarkOTPAsUsed(otpID uint) error {
 		return result.Error
 	}
 	if result.RowsAffected == 0 {
-		return errors.New("OTP has already been used or does not exist")
+		return domain.ErrOTPAlreadyUsed
 	}
 	return nil
 }
@@ -95,24 +94,4 @@ func (r *authRepository) FindUserByID(id uint) (*domain.User, error) {
 		return nil, err
 	}
 	return &user, nil
-}
-
-func (r *authRepository) MarkOTPAsUsedAndCreateUser(otpID uint, user *domain.User) error {
-	return r.db.Transaction(func(tx *gorm.DB) error {
-		// Mark OTP as used
-		result := tx.Model(&domain.OTP{}).Where("id = ? AND used = ?", otpID, false).Update("used", true)
-		if result.Error != nil {
-			return result.Error
-		}
-		if result.RowsAffected == 0 {
-			return errors.New("OTP has already been used or does not exist")
-		}
-
-		// Create user
-		if err := tx.Create(user).Error; err != nil {
-			return err
-		}
-
-		return nil
-	})
 }
