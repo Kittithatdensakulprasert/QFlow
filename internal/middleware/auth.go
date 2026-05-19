@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"strings"
 
+	"qflow/internal/httpresponse"
 	"qflow/internal/jwt"
 
 	"github.com/gin-gonic/gin"
@@ -14,21 +15,21 @@ func JWTAuth(jwtManager *jwt.JWTManager) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" {
-			respondError(c, http.StatusUnauthorized, "UNAUTHORIZED", "authorization header required")
+			httpresponse.Error(c, http.StatusUnauthorized, "UNAUTHORIZED", "authorization header required")
 			c.Abort()
 			return
 		}
 
 		parts := strings.Split(authHeader, " ")
 		if len(parts) != 2 || parts[0] != "Bearer" {
-			respondError(c, http.StatusUnauthorized, "UNAUTHORIZED", "invalid authorization header format")
+			httpresponse.Error(c, http.StatusUnauthorized, "UNAUTHORIZED", "invalid authorization header format")
 			c.Abort()
 			return
 		}
 
 		claims, err := jwtManager.ValidateToken(parts[1])
 		if err != nil {
-			respondError(c, http.StatusUnauthorized, "UNAUTHORIZED", "invalid token")
+			httpresponse.Error(c, http.StatusUnauthorized, "UNAUTHORIZED", "invalid token")
 			c.Abort()
 			return
 		}
@@ -50,19 +51,19 @@ func RequireRole(roles ...string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		roleValue, exists := c.Get("role")
 		if !exists {
-			respondError(c, http.StatusUnauthorized, "UNAUTHORIZED", "authentication required")
+			httpresponse.Error(c, http.StatusUnauthorized, "UNAUTHORIZED", "authentication required")
 			c.Abort()
 			return
 		}
 
 		role, ok := roleValue.(string)
 		if !ok {
-			respondError(c, http.StatusForbidden, "FORBIDDEN", "forbidden")
+			httpresponse.Error(c, http.StatusForbidden, "FORBIDDEN", "forbidden")
 			c.Abort()
 			return
 		}
 		if _, ok := allowed[role]; !ok {
-			respondError(c, http.StatusForbidden, "FORBIDDEN", "forbidden")
+			httpresponse.Error(c, http.StatusForbidden, "FORBIDDEN", "forbidden")
 			c.Abort()
 			return
 		}

@@ -4,6 +4,8 @@ import (
 	"net/http"
 	"strconv"
 
+	"qflow/internal/httpresponse"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -74,10 +76,5 @@ func parseID(idParam string) (uint, error) {
 
 // respondError writes a structured JSON error response with an error code.
 func respondError(c *gin.Context, status int, errorCode string, message string) {
-	c.JSON(status, gin.H{
-		"status":  status,
-		"error":   errorCode,
-		"message": message,
-		"path":    c.Request.URL.Path,
-	})
+	httpresponse.Error(c, status, errorCode, message)
 }

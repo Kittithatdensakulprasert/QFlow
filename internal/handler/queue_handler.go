@@ -111,7 +111,7 @@ func (h *QueueHandler) GetQueue(c *gin.Context) {
 
 // PATCH /api/queues/:id/cancel
 func (h *QueueHandler) CancelQueue(c *gin.Context) {
-	id, ok := parseUintParam(c, "id", "INVALID_ID", "invalid id")
+	id, ok := parseUintParam(c, "id", "INVALID_QUEUE_ID", "invalid queue id")
 	if !ok {
 		return
 	}
@@ -161,7 +161,7 @@ func (h *QueueHandler) GetQueuesByZone(c *gin.Context) {
 
 // PATCH /api/manage/queues/:id/call
 func (h *QueueHandler) CallQueue(c *gin.Context) {
-	id, ok := parseUintParam(c, "id", "INVALID_ID", "invalid id")
+	id, ok := parseUintParam(c, "id", "INVALID_QUEUE_ID", "invalid queue id")
 	if !ok {
 		return
 	}
@@ -184,7 +184,7 @@ func (h *QueueHandler) CallQueue(c *gin.Context) {
 
 // PATCH /api/manage/queues/:id/complete
 func (h *QueueHandler) CompleteQueue(c *gin.Context) {
-	id, ok := parseUintParam(c, "id", "INVALID_ID", "invalid id")
+	id, ok := parseUintParam(c, "id", "INVALID_QUEUE_ID", "invalid queue id")
 	if !ok {
 		return
 	}
@@ -207,7 +207,7 @@ func (h *QueueHandler) CompleteQueue(c *gin.Context) {
 
 // PATCH /api/manage/queues/:id/skip
 func (h *QueueHandler) SkipQueue(c *gin.Context) {
-	id, ok := parseUintParam(c, "id", "INVALID_ID", "invalid id")
+	id, ok := parseUintParam(c, "id", "INVALID_QUEUE_ID", "invalid queue id")
 	if !ok {
 		return
 	}

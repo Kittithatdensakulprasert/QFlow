@@ -60,7 +60,7 @@ func (h *ProviderHandler) GetProviders(c *gin.Context) {
 }
 
 func (h *ProviderHandler) CreateZone(c *gin.Context) {
-	providerID, ok := parseUintParam(c, "id", "INVALID_ID", "invalid provider id")
+	providerID, ok := parseUintParam(c, "id", "INVALID_PROVIDER_ID", "invalid provider id")
 	if !ok {
 		return
 	}
@@ -88,7 +88,7 @@ func (h *ProviderHandler) CreateZone(c *gin.Context) {
 }
 
 func (h *ProviderHandler) GetZones(c *gin.Context) {
-	providerID, ok := parseUintParam(c, "id", "INVALID_ID", "invalid provider id")
+	providerID, ok := parseUintParam(c, "id", "INVALID_PROVIDER_ID", "invalid provider id")
 	if !ok {
 		return
 	}
