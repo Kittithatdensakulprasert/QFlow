@@ -1,6 +1,9 @@
 package domain
 
-import "time"
+import (
+	"context"
+	"time"
+)
 
 type Provider struct {
 	ID         uint      `gorm:"primaryKey" json:"id"`
@@ -23,22 +26,22 @@ type Zone struct {
 }
 
 type ProviderRepository interface {
-	CreateProvider(provider *Provider) error
-	FindProviders() ([]Provider, error)
-	FindCategoryByID(id uint) (*Category, error)
-	FindProviderByID(id uint) (*Provider, error)
-	CreateZone(zone *Zone) error
-	FindZonesByProviderID(providerID uint) ([]Zone, error)
-	FindZoneByID(id uint) (*Zone, error)
-	UpdateZone(zone *Zone) error
-	CountQueuesByZoneID(zoneID uint) (int, error)
-	CountQueuesByZoneIDs(zoneIDs []uint) (map[uint]int, error)
+	CreateProvider(ctx context.Context, provider *Provider) error
+	FindProviders(ctx context.Context) ([]Provider, error)
+	FindCategoryByID(ctx context.Context, id uint) (*Category, error)
+	FindProviderByID(ctx context.Context, id uint) (*Provider, error)
+	CreateZone(ctx context.Context, zone *Zone) error
+	FindZonesByProviderID(ctx context.Context, providerID uint) ([]Zone, error)
+	FindZoneByID(ctx context.Context, id uint) (*Zone, error)
+	UpdateZone(ctx context.Context, zone *Zone) error
+	CountQueuesByZoneID(ctx context.Context, zoneID uint) (int, error)
+	CountQueuesByZoneIDs(ctx context.Context, zoneIDs []uint) (map[uint]int, error)
 }
 
 type ProviderService interface {
-	CreateProvider(name string, categoryID uint) (*Provider, error)
-	GetProviders() ([]Provider, error)
-	CreateZone(providerID uint, name string) (*Zone, error)
-	GetZones(providerID uint) ([]Zone, error)
-	ToggleZone(id uint) (*Zone, error)
+	CreateProvider(ctx context.Context, name string, categoryID uint) (*Provider, error)
+	GetProviders(ctx context.Context) ([]Provider, error)
+	CreateZone(ctx context.Context, providerID uint, name string) (*Zone, error)
+	GetZones(ctx context.Context, providerID uint) ([]Zone, error)
+	ToggleZone(ctx context.Context, id uint) (*Zone, error)
 }

@@ -32,7 +32,7 @@ func (j *OTPCleanupJob) Start(ctx context.Context) {
 }
 
 func (j *OTPCleanupJob) Run(ctx context.Context) {
-	j.cleanup(time.Now())
+	j.cleanup(ctx, time.Now())
 
 	ticker := time.NewTicker(j.interval)
 	defer ticker.Stop()
@@ -43,17 +43,17 @@ func (j *OTPCleanupJob) Run(ctx context.Context) {
 			j.logf("OTP cleanup job stopped")
 			return
 		case now := <-ticker.C:
-			j.cleanup(now)
+			j.cleanup(ctx, now)
 		}
 	}
 }
 
-func (j *OTPCleanupJob) CleanupExpiredOTPs(now time.Time) (int64, error) {
-	return j.authRepo.DeleteExpiredOTPs(now)
+func (j *OTPCleanupJob) CleanupExpiredOTPs(ctx context.Context, now time.Time) (int64, error) {
+	return j.authRepo.DeleteExpiredOTPs(ctx, now)
 }
 
-func (j *OTPCleanupJob) cleanup(now time.Time) {
-	deleted, err := j.CleanupExpiredOTPs(now)
+func (j *OTPCleanupJob) cleanup(ctx context.Context, now time.Time) {
+	deleted, err := j.CleanupExpiredOTPs(ctx, now)
 	if err != nil {
 		j.logf("failed to cleanup expired OTPs: %v", err)
 		return

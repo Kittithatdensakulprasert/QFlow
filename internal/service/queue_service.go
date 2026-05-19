@@ -1,11 +1,10 @@
 package service
 
 import (
+	"context"
 	"errors"
 
 	"qflow/internal/domain"
-
-	"gorm.io/gorm"
 )
 
 var (
@@ -29,7 +28,7 @@ func NewQueueService(repo domain.QueueRepository) domain.QueueService {
 
 // ===================== Queue Booking =====================
 
-func (s *queueService) BookQueue(userID, zoneID uint) (*domain.Queue, error) {
+func (s *queueService) BookQueue(ctx context.Context, userID, zoneID uint) (*domain.Queue, error) {
 	if userID == 0 {
 		return nil, ErrInvalidUserID
 	}
@@ -37,9 +36,9 @@ func (s *queueService) BookQueue(userID, zoneID uint) (*domain.Queue, error) {
 		return nil, ErrInvalidZoneID
 	}
 
-	zone, err := s.repo.FindZoneByID(zoneID)
+	zone, err := s.repo.FindZoneByID(ctx, zoneID)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
+		if errors.Is(err, domain.ErrQueueZoneRecordNotFound) {
 			return nil, ErrZoneNotFound
 		}
 		return nil, err
@@ -53,21 +52,21 @@ func (s *queueService) BookQueue(userID, zoneID uint) (*domain.Queue, error) {
 		UserID: userID,
 		Status: "waiting",
 	}
-	if err := s.repo.CreateWithNextQueueNumber(queue); err != nil {
+	if err := s.repo.CreateWithNextQueueNumber(ctx, queue); err != nil {
 		return nil, err
 	}
 	queue.Zone = *zone
 	return queue, nil
 }
 
-func (s *queueService) GetQueueByNumber(queueNumber int, userID uint) (*domain.Queue, error) {
+func (s *queueService) GetQueueByNumber(ctx context.Context, queueNumber int, userID uint) (*domain.Queue, error) {
 	if userID == 0 {
 		return nil, ErrInvalidUserID
 	}
 
-	queue, err := s.repo.FindByQueueNumber(queueNumber)
+	queue, err := s.repo.FindByQueueNumber(ctx, queueNumber)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
+		if errors.Is(err, domain.ErrQueueRecordNotFound) {
 			return nil, ErrQueueNotFound
 		}
 		return nil, err
@@ -78,18 +77,18 @@ func (s *queueService) GetQueueByNumber(queueNumber int, userID uint) (*domain.Q
 	return queue, nil
 }
 
-func (s *queueService) GetQueueHistory(userID uint, page, limit int) ([]domain.Queue, int64, error) {
+func (s *queueService) GetQueueHistory(ctx context.Context, userID uint, page, limit int) ([]domain.Queue, int64, error) {
 	if userID == 0 {
 		return nil, 0, ErrInvalidUserID
 	}
 
 	offset := (page - 1) * limit
-	queues, err := s.repo.FindByUserID(userID, offset, limit)
+	queues, err := s.repo.FindByUserID(ctx, userID, offset, limit)
 	if err != nil {
 		return nil, 0, err
 	}
 
-	total, err := s.repo.CountByUserID(userID)
+	total, err := s.repo.CountByUserID(ctx, userID)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -97,14 +96,14 @@ func (s *queueService) GetQueueHistory(userID uint, page, limit int) ([]domain.Q
 	return queues, total, nil
 }
 
-func (s *queueService) CancelQueue(id, userID uint) error {
+func (s *queueService) CancelQueue(ctx context.Context, id, userID uint) error {
 	if userID == 0 {
 		return ErrInvalidUserID
 	}
 
-	queue, err := s.repo.FindByID(id)
+	queue, err := s.repo.FindByID(ctx, id)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
+		if errors.Is(err, domain.ErrQueueRecordNotFound) {
 			return ErrQueueNotFound
 		}
 		return err
@@ -120,19 +119,19 @@ func (s *queueService) CancelQueue(id, userID uint) error {
 		return ErrQueueFinalized
 	}
 
-	return s.repo.UpdateStatus(id, "cancelled")
+	return s.repo.UpdateStatus(ctx, id, "cancelled")
 }
 
 // ===================== Queue Management =====================
 
-func (s *queueService) GetQueuesByZone(zoneID uint) ([]domain.Queue, error) {
-	return s.repo.GetByZoneID(zoneID)
+func (s *queueService) GetQueuesByZone(ctx context.Context, zoneID uint) ([]domain.Queue, error) {
+	return s.repo.GetByZoneID(ctx, zoneID)
 }
 
-func (s *queueService) CallQueue(id uint) (*domain.Queue, error) {
-	queue, err := s.repo.FindByID(id)
+func (s *queueService) CallQueue(ctx context.Context, id uint) (*domain.Queue, error) {
+	queue, err := s.repo.FindByID(ctx, id)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
+		if errors.Is(err, domain.ErrQueueRecordNotFound) {
 			return nil, ErrQueueNotFound
 		}
 		return nil, err
@@ -141,7 +140,7 @@ func (s *queueService) CallQueue(id uint) (*domain.Queue, error) {
 		return nil, domain.ErrQueueCannotBeCalled
 	}
 
-	if err := s.repo.UpdateStatus(id, "called"); err != nil {
+	if err := s.repo.UpdateStatus(ctx, id, "called"); err != nil {
 		return nil, err
 	}
 
@@ -149,10 +148,10 @@ func (s *queueService) CallQueue(id uint) (*domain.Queue, error) {
 	return queue, nil
 }
 
-func (s *queueService) CompleteQueue(id uint) (*domain.Queue, error) {
-	queue, err := s.repo.FindByID(id)
+func (s *queueService) CompleteQueue(ctx context.Context, id uint) (*domain.Queue, error) {
+	queue, err := s.repo.FindByID(ctx, id)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
+		if errors.Is(err, domain.ErrQueueRecordNotFound) {
 			return nil, ErrQueueNotFound
 		}
 		return nil, err
@@ -161,7 +160,7 @@ func (s *queueService) CompleteQueue(id uint) (*domain.Queue, error) {
 		return nil, domain.ErrQueueCannotBeCompleted
 	}
 
-	if err := s.repo.UpdateStatus(id, "completed"); err != nil {
+	if err := s.repo.UpdateStatus(ctx, id, "completed"); err != nil {
 		return nil, err
 	}
 
@@ -169,10 +168,10 @@ func (s *queueService) CompleteQueue(id uint) (*domain.Queue, error) {
 	return queue, nil
 }
 
-func (s *queueService) SkipQueue(id uint) (*domain.Queue, error) {
-	queue, err := s.repo.FindByID(id)
+func (s *queueService) SkipQueue(ctx context.Context, id uint) (*domain.Queue, error) {
+	queue, err := s.repo.FindByID(ctx, id)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
+		if errors.Is(err, domain.ErrQueueRecordNotFound) {
 			return nil, ErrQueueNotFound
 		}
 		return nil, err
@@ -181,7 +180,7 @@ func (s *queueService) SkipQueue(id uint) (*domain.Queue, error) {
 		return nil, domain.ErrQueueCannotBeSkipped
 	}
 
-	if err := s.repo.UpdateStatus(id, "skipped"); err != nil {
+	if err := s.repo.UpdateStatus(ctx, id, "skipped"); err != nil {
 		return nil, err
 	}
 

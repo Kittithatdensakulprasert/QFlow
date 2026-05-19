@@ -31,7 +31,7 @@ func (h *NotificationHandler) GetNotifications(c *gin.Context) {
 		return
 	}
 
-	notifications, total, err := h.svc.GetNotifications(userID, page, limit)
+	notifications, total, err := h.svc.GetNotifications(c.Request.Context(), userID, page, limit)
 	if err != nil {
 		respondError(c, http.StatusInternalServerError, "INTERNAL_SERVER_ERROR", "internal server error")
 		return
@@ -57,7 +57,7 @@ func (h *NotificationHandler) SendNotification(c *gin.Context) {
 		return
 	}
 
-	n, err := h.svc.SendNotification(userID, body.Message)
+	n, err := h.svc.SendNotification(c.Request.Context(), userID, body.Message)
 	if err != nil {
 		respondError(c, http.StatusBadRequest, "SEND_FAILED", err.Error())
 		return
@@ -78,7 +78,7 @@ func (h *NotificationHandler) MarkNotificationRead(c *gin.Context) {
 		return
 	}
 
-	if err := h.svc.MarkNotificationRead(uint(id), userID); err != nil {
+	if err := h.svc.MarkNotificationRead(c.Request.Context(), uint(id), userID); err != nil {
 		switch {
 		case errors.Is(err, service.ErrNotificationNotFound):
 			respondError(c, http.StatusNotFound, "NOTIFICATION_NOT_FOUND", err.Error())
@@ -105,7 +105,7 @@ func (h *NotificationHandler) DeleteNotification(c *gin.Context) {
 		return
 	}
 
-	if err := h.svc.DeleteNotification(uint(id), userID); err != nil {
+	if err := h.svc.DeleteNotification(c.Request.Context(), uint(id), userID); err != nil {
 		switch {
 		case errors.Is(err, service.ErrNotificationNotFound):
 			respondError(c, http.StatusNotFound, "NOTIFICATION_NOT_FOUND", err.Error())
