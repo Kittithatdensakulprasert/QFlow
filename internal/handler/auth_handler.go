@@ -25,7 +25,7 @@ func (h *AuthHandler) RequestOTP(c *gin.Context) {
 		return
 	}
 
-	otp, err := h.authService.RequestOTP(req.Phone)
+	otp, err := h.authService.RequestOTP(c.Request.Context(), req.Phone)
 	if err != nil {
 		respondError(c, http.StatusInternalServerError, "OTP_SEND_FAILED", "failed to send OTP")
 		return
@@ -51,7 +51,7 @@ func (h *AuthHandler) VerifyOTP(c *gin.Context) {
 		return
 	}
 
-	user, token, err := h.authService.VerifyOTP(req.Phone, req.Code)
+	user, token, err := h.authService.VerifyOTP(c.Request.Context(), req.Phone, req.Code)
 	if err != nil {
 		respondError(c, http.StatusUnauthorized, "OTP_INVALID", err.Error())
 		return
@@ -76,7 +76,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		return
 	}
 
-	user, token, err := h.authService.RegisterUser(req.Phone, req.Name, req.Role, req.OTPCode)
+	user, token, err := h.authService.RegisterUser(c.Request.Context(), req.Phone, req.Name, req.Role, req.OTPCode)
 	if err != nil {
 		respondError(c, http.StatusBadRequest, "REGISTRATION_FAILED", err.Error())
 		return
@@ -96,7 +96,7 @@ func (h *AuthHandler) GetProfile(c *gin.Context) {
 		return
 	}
 
-	user, err := h.authService.GetUserProfile(userID)
+	user, err := h.authService.GetUserProfile(c.Request.Context(), userID)
 	if err != nil {
 		respondError(c, http.StatusNotFound, "USER_NOT_FOUND", err.Error())
 		return
@@ -121,7 +121,7 @@ func (h *AuthHandler) UpdateProfile(c *gin.Context) {
 		return
 	}
 
-	user, err := h.authService.UpdateUserProfile(userID, req.Name, req.Role)
+	user, err := h.authService.UpdateUserProfile(c.Request.Context(), userID, req.Name, req.Role)
 	if err != nil {
 		respondError(c, http.StatusBadRequest, "UPDATE_FAILED", err.Error())
 		return

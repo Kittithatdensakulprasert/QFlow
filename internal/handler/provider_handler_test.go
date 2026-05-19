@@ -2,6 +2,7 @@ package handler
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -19,7 +20,7 @@ type mockProviderService struct {
 	err       error
 }
 
-func (m *mockProviderService) CreateProvider(name string, categoryID uint) (*domain.Provider, error) {
+func (m *mockProviderService) CreateProvider(_ context.Context, name string, categoryID uint) (*domain.Provider, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -31,14 +32,14 @@ func (m *mockProviderService) CreateProvider(name string, categoryID uint) (*dom
 	return &provider, nil
 }
 
-func (m *mockProviderService) GetProviders() ([]domain.Provider, error) {
+func (m *mockProviderService) GetProviders(_ context.Context) ([]domain.Provider, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
 	return m.providers, nil
 }
 
-func (m *mockProviderService) CreateZone(providerID uint, name string) (*domain.Zone, error) {
+func (m *mockProviderService) CreateZone(_ context.Context, providerID uint, name string) (*domain.Zone, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -53,7 +54,7 @@ func (m *mockProviderService) CreateZone(providerID uint, name string) (*domain.
 	return &zone, nil
 }
 
-func (m *mockProviderService) GetZones(providerID uint) ([]domain.Zone, error) {
+func (m *mockProviderService) GetZones(_ context.Context, providerID uint) ([]domain.Zone, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -66,7 +67,7 @@ func (m *mockProviderService) GetZones(providerID uint) ([]domain.Zone, error) {
 	return result, nil
 }
 
-func (m *mockProviderService) ToggleZone(id uint) (*domain.Zone, error) {
+func (m *mockProviderService) ToggleZone(_ context.Context, id uint) (*domain.Zone, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -106,6 +107,35 @@ func TestCreateProviderWithMissingCategory(t *testing.T) {
 
 	if res.Code != http.StatusNotFound {
 		t.Fatalf("expected status %d, got %d", http.StatusNotFound, res.Code)
+	}
+}
+
+func TestCreateProvider_InvalidJSON(t *testing.T) {
+	router, _ := setupProviderTestRouter()
+
+	res := performProviderRequest(router, http.MethodPost, "/api/providers", `{"name":`)
+	if res.Code != http.StatusBadRequest {
+		t.Fatalf("expected status %d, got %d", http.StatusBadRequest, res.Code)
+	}
+}
+
+func TestCreateProvider_NameRequired(t *testing.T) {
+	router, svc := setupProviderTestRouter()
+	svc.err = service.ErrProviderNameRequired
+
+	res := performProviderRequest(router, http.MethodPost, "/api/providers", `{"name":" "}`)
+	if res.Code != http.StatusBadRequest {
+		t.Fatalf("expected status %d, got %d", http.StatusBadRequest, res.Code)
+	}
+}
+
+func TestCreateProvider_InternalError(t *testing.T) {
+	router, svc := setupProviderTestRouter()
+	svc.err = errors.New("db down")
+
+	res := performProviderRequest(router, http.MethodPost, "/api/providers", `{"name":"Bangkok Clinic"}`)
+	if res.Code != http.StatusInternalServerError {
+		t.Fatalf("expected status %d, got %d", http.StatusInternalServerError, res.Code)
 	}
 }
 
@@ -164,6 +194,44 @@ func TestCreateAndGetZones(t *testing.T) {
 	}
 }
 
+func TestCreateZone_InvalidProviderID(t *testing.T) {
+	router, _ := setupProviderTestRouter()
+
+	res := performProviderRequest(router, http.MethodPost, "/api/providers/abc/zones", `{"name":"Counter A"}`)
+	if res.Code != http.StatusBadRequest {
+		t.Fatalf("expected status %d, got %d", http.StatusBadRequest, res.Code)
+	}
+}
+
+func TestCreateZone_InvalidJSON(t *testing.T) {
+	router, _ := setupProviderTestRouter()
+
+	res := performProviderRequest(router, http.MethodPost, "/api/providers/1/zones", `{"name":`)
+	if res.Code != http.StatusBadRequest {
+		t.Fatalf("expected status %d, got %d", http.StatusBadRequest, res.Code)
+	}
+}
+
+func TestCreateZone_NameRequired(t *testing.T) {
+	router, svc := setupProviderTestRouter()
+	svc.err = service.ErrZoneNameRequired
+
+	res := performProviderRequest(router, http.MethodPost, "/api/providers/1/zones", `{"name":" "}`)
+	if res.Code != http.StatusBadRequest {
+		t.Fatalf("expected status %d, got %d", http.StatusBadRequest, res.Code)
+	}
+}
+
+func TestCreateZone_InternalError(t *testing.T) {
+	router, svc := setupProviderTestRouter()
+	svc.err = errors.New("db down")
+
+	res := performProviderRequest(router, http.MethodPost, "/api/providers/1/zones", `{"name":"Counter A"}`)
+	if res.Code != http.StatusInternalServerError {
+		t.Fatalf("expected status %d, got %d", http.StatusInternalServerError, res.Code)
+	}
+}
+
 func TestToggleZone(t *testing.T) {
 	router, svc := setupProviderTestRouter()
 	svc.zones = append(svc.zones, domain.Zone{ID: 1, ProviderID: 1, Name: "Counter A", IsOpen: true})
@@ -181,6 +249,63 @@ func TestToggleZone(t *testing.T) {
 
 	if zone.IsOpen {
 		t.Fatalf("expected zone to be closed after toggle: %+v", zone)
+	}
+}
+
+func TestGetZones_InvalidProviderID(t *testing.T) {
+	router, _ := setupProviderTestRouter()
+
+	res := performProviderRequest(router, http.MethodGet, "/api/providers/abc/zones", "")
+	if res.Code != http.StatusBadRequest {
+		t.Fatalf("expected status %d, got %d", http.StatusBadRequest, res.Code)
+	}
+}
+
+func TestGetZones_ProviderNotFound(t *testing.T) {
+	router, svc := setupProviderTestRouter()
+	svc.err = service.ErrProviderNotFound
+
+	res := performProviderRequest(router, http.MethodGet, "/api/providers/99/zones", "")
+	if res.Code != http.StatusNotFound {
+		t.Fatalf("expected status %d, got %d", http.StatusNotFound, res.Code)
+	}
+}
+
+func TestGetZones_InternalError(t *testing.T) {
+	router, svc := setupProviderTestRouter()
+	svc.err = errors.New("db down")
+
+	res := performProviderRequest(router, http.MethodGet, "/api/providers/1/zones", "")
+	if res.Code != http.StatusInternalServerError {
+		t.Fatalf("expected status %d, got %d", http.StatusInternalServerError, res.Code)
+	}
+}
+
+func TestToggleZone_InvalidZoneID(t *testing.T) {
+	router, _ := setupProviderTestRouter()
+
+	res := performProviderRequest(router, http.MethodPatch, "/api/zones/abc/toggle", "")
+	if res.Code != http.StatusBadRequest {
+		t.Fatalf("expected status %d, got %d", http.StatusBadRequest, res.Code)
+	}
+}
+
+func TestToggleZone_ZoneNotFound(t *testing.T) {
+	router, _ := setupProviderTestRouter()
+
+	res := performProviderRequest(router, http.MethodPatch, "/api/zones/999/toggle", "")
+	if res.Code != http.StatusNotFound {
+		t.Fatalf("expected status %d, got %d", http.StatusNotFound, res.Code)
+	}
+}
+
+func TestToggleZone_InternalError(t *testing.T) {
+	router, svc := setupProviderTestRouter()
+	svc.err = errors.New("db down")
+
+	res := performProviderRequest(router, http.MethodPatch, "/api/zones/1/toggle", "")
+	if res.Code != http.StatusInternalServerError {
+		t.Fatalf("expected status %d, got %d", http.StatusInternalServerError, res.Code)
 	}
 }
 

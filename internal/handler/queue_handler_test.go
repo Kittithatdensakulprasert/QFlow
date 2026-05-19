@@ -2,6 +2,7 @@ package handler
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -18,7 +19,7 @@ type mockQueueService struct {
 	err    error
 }
 
-func (m *mockQueueService) BookQueue(userID, zoneID uint) (*domain.Queue, error) {
+func (m *mockQueueService) BookQueue(_ context.Context, userID, zoneID uint) (*domain.Queue, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -33,7 +34,7 @@ func (m *mockQueueService) BookQueue(userID, zoneID uint) (*domain.Queue, error)
 	return &queue, nil
 }
 
-func (m *mockQueueService) GetQueueHistory(userID uint) ([]domain.Queue, error) {
+func (m *mockQueueService) GetQueueHistory(_ context.Context, userID uint) ([]domain.Queue, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -58,7 +59,7 @@ func (m *mockQueueService) GetQueue(queueNumber int) (*domain.Queue, error) {
 	return nil, service.ErrQueueNotFound
 }
 
-func (m *mockQueueService) CancelQueue(id, userID uint) error {
+func (m *mockQueueService) CancelQueue(_ context.Context, id, userID uint) error {
 	if m.err != nil {
 		return m.err
 	}
@@ -71,7 +72,7 @@ func (m *mockQueueService) CancelQueue(id, userID uint) error {
 	return service.ErrQueueNotFound
 }
 
-func (m *mockQueueService) GetQueuesByZone(zoneID uint) ([]domain.Queue, error) {
+func (m *mockQueueService) GetQueuesByZone(_ context.Context, zoneID uint) ([]domain.Queue, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -84,7 +85,7 @@ func (m *mockQueueService) GetQueuesByZone(zoneID uint) ([]domain.Queue, error) 
 	return result, nil
 }
 
-func (m *mockQueueService) CallQueue(id uint) (*domain.Queue, error) {
+func (m *mockQueueService) CallQueue(_ context.Context, id uint) (*domain.Queue, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -97,7 +98,7 @@ func (m *mockQueueService) CallQueue(id uint) (*domain.Queue, error) {
 	return nil, service.ErrQueueNotFound
 }
 
-func (m *mockQueueService) CompleteQueue(id uint) (*domain.Queue, error) {
+func (m *mockQueueService) CompleteQueue(_ context.Context, id uint) (*domain.Queue, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -110,7 +111,7 @@ func (m *mockQueueService) CompleteQueue(id uint) (*domain.Queue, error) {
 	return nil, service.ErrQueueNotFound
 }
 
-func (m *mockQueueService) SkipQueue(id uint) (*domain.Queue, error) {
+func (m *mockQueueService) SkipQueue(_ context.Context, id uint) (*domain.Queue, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -123,7 +124,7 @@ func (m *mockQueueService) SkipQueue(id uint) (*domain.Queue, error) {
 	return nil, service.ErrQueueNotFound
 }
 
-func (m *mockQueueService) GetQueueByNumber(queueNumber int, userID uint) (*domain.Queue, error) {
+func (m *mockQueueService) GetQueueByNumber(_ context.Context, queueNumber int, userID uint) (*domain.Queue, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -245,24 +246,334 @@ func TestQueueHandlerReturnsInternalServerError(t *testing.T) {
 	}
 }
 
+func TestBookQueueUnauthorized(t *testing.T) {
+	router, _ := setupQueueTestRouterWithoutAuth()
+
+	res := performQueueRequest(router, http.MethodPost, "/api/queues/book", `{"zone_id":1}`)
+	if res.Code != http.StatusUnauthorized {
+		t.Fatalf("expected status %d, got %d", http.StatusUnauthorized, res.Code)
+	}
+}
+
+func TestBookQueueErrorMappings(t *testing.T) {
+	tests := []struct {
+		name     string
+		err      error
+		wantCode int
+	}{
+		{"invalid user", service.ErrInvalidUserID, http.StatusBadRequest},
+		{"invalid zone", service.ErrInvalidZoneID, http.StatusBadRequest},
+		{"zone not found", service.ErrZoneNotFound, http.StatusNotFound},
+		{"zone closed", service.ErrZoneClosed, http.StatusConflict},
+		{"internal", errors.New("boom"), http.StatusInternalServerError},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			router, svc := setupQueueTestRouter()
+			svc.err = tt.err
+
+			res := performQueueRequest(router, http.MethodPost, "/api/queues/book", `{"zone_id":1}`)
+			if res.Code != tt.wantCode {
+				t.Fatalf("expected status %d, got %d", tt.wantCode, res.Code)
+			}
+		})
+	}
+}
+
+func TestGetHistoryUnauthorized(t *testing.T) {
+	router, _ := setupQueueTestRouterWithoutAuth()
+
+	res := performQueueRequest(router, http.MethodGet, "/api/queues/history", "")
+	if res.Code != http.StatusUnauthorized {
+		t.Fatalf("expected status %d, got %d", http.StatusUnauthorized, res.Code)
+	}
+}
+
+func TestGetHistoryInvalidUserID(t *testing.T) {
+	router, svc := setupQueueTestRouter()
+	svc.err = service.ErrInvalidUserID
+
+	res := performQueueRequest(router, http.MethodGet, "/api/queues/history", "")
+	if res.Code != http.StatusBadRequest {
+		t.Fatalf("expected status %d, got %d", http.StatusBadRequest, res.Code)
+	}
+}
+
+func TestGetQueueInvalidQueueNumber(t *testing.T) {
+	router, _ := setupQueueTestRouter()
+
+	res := performQueueRequest(router, http.MethodGet, "/api/queues/abc", "")
+	if res.Code != http.StatusBadRequest {
+		t.Fatalf("expected status %d, got %d", http.StatusBadRequest, res.Code)
+	}
+
+	res = performQueueRequest(router, http.MethodGet, "/api/queues/0", "")
+	if res.Code != http.StatusBadRequest {
+		t.Fatalf("expected status %d, got %d", http.StatusBadRequest, res.Code)
+	}
+}
+
+func TestGetQueueUnauthorized(t *testing.T) {
+	router, _ := setupQueueTestRouterWithoutAuth()
+
+	res := performQueueRequest(router, http.MethodGet, "/api/queues/101", "")
+	if res.Code != http.StatusUnauthorized {
+		t.Fatalf("expected status %d, got %d", http.StatusUnauthorized, res.Code)
+	}
+}
+
+func TestGetQueueErrorMappings(t *testing.T) {
+	tests := []struct {
+		name     string
+		err      error
+		wantCode int
+	}{
+		{"invalid user", service.ErrInvalidUserID, http.StatusBadRequest},
+		{"not found", service.ErrQueueNotFound, http.StatusNotFound},
+		{"forbidden", service.ErrForbiddenQueue, http.StatusForbidden},
+		{"internal", errors.New("boom"), http.StatusInternalServerError},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			router, svc := setupQueueTestRouter()
+			svc.err = tt.err
+
+			res := performQueueRequest(router, http.MethodGet, "/api/queues/101", "")
+			if res.Code != tt.wantCode {
+				t.Fatalf("expected status %d, got %d", tt.wantCode, res.Code)
+			}
+		})
+	}
+}
+
+func TestCancelQueueInvalidID(t *testing.T) {
+	router, _ := setupQueueTestRouter()
+
+	res := performQueueRequest(router, http.MethodPatch, "/api/queues/abc/cancel", "")
+	if res.Code != http.StatusBadRequest {
+		t.Fatalf("expected status %d, got %d", http.StatusBadRequest, res.Code)
+	}
+
+	res = performQueueRequest(router, http.MethodPatch, "/api/queues/0/cancel", "")
+	if res.Code != http.StatusBadRequest {
+		t.Fatalf("expected status %d, got %d", http.StatusBadRequest, res.Code)
+	}
+}
+
+func TestCancelQueueUnauthorized(t *testing.T) {
+	router, _ := setupQueueTestRouterWithoutAuth()
+
+	res := performQueueRequest(router, http.MethodPatch, "/api/queues/1/cancel", "")
+	if res.Code != http.StatusUnauthorized {
+		t.Fatalf("expected status %d, got %d", http.StatusUnauthorized, res.Code)
+	}
+}
+
+func TestCancelQueueErrorMappings(t *testing.T) {
+	tests := []struct {
+		name     string
+		err      error
+		wantCode int
+	}{
+		{"invalid user", service.ErrInvalidUserID, http.StatusBadRequest},
+		{"not found", service.ErrQueueNotFound, http.StatusNotFound},
+		{"forbidden", service.ErrForbiddenQueue, http.StatusForbidden},
+		{"finalized", service.ErrQueueFinalized, http.StatusConflict},
+		{"cancelled", service.ErrQueueCancelled, http.StatusConflict},
+		{"internal", errors.New("boom"), http.StatusInternalServerError},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			router, svc := setupQueueTestRouter()
+			svc.err = tt.err
+
+			res := performQueueRequest(router, http.MethodPatch, "/api/queues/1/cancel", "")
+			if res.Code != tt.wantCode {
+				t.Fatalf("expected status %d, got %d", tt.wantCode, res.Code)
+			}
+		})
+	}
+}
+
+func TestGetQueuesByZoneBranches(t *testing.T) {
+	router, svc := setupQueueTestRouter()
+
+	res := performQueueRequest(router, http.MethodGet, "/api/manage/queues/abc", "")
+	if res.Code != http.StatusBadRequest {
+		t.Fatalf("expected status %d, got %d", http.StatusBadRequest, res.Code)
+	}
+
+	svc.err = errors.New("boom")
+	res = performQueueRequest(router, http.MethodGet, "/api/manage/queues/1", "")
+	if res.Code != http.StatusInternalServerError {
+		t.Fatalf("expected status %d, got %d", http.StatusInternalServerError, res.Code)
+	}
+}
+
+func TestCallQueueBranches(t *testing.T) {
+	router, svc := setupQueueTestRouter()
+
+	res := performQueueRequest(router, http.MethodPatch, "/api/manage/queues/abc/call", "")
+	if res.Code != http.StatusBadRequest {
+		t.Fatalf("expected status %d, got %d", http.StatusBadRequest, res.Code)
+	}
+
+	svc.err = service.ErrQueueNotFound
+	res = performQueueRequest(router, http.MethodPatch, "/api/manage/queues/1/call", "")
+	if res.Code != http.StatusNotFound {
+		t.Fatalf("expected status %d, got %d", http.StatusNotFound, res.Code)
+	}
+
+	svc.err = domain.ErrQueueCannotBeCalled
+	res = performQueueRequest(router, http.MethodPatch, "/api/manage/queues/1/call", "")
+	if res.Code != http.StatusConflict {
+		t.Fatalf("expected status %d, got %d", http.StatusConflict, res.Code)
+	}
+
+	svc.err = errors.New("boom")
+	res = performQueueRequest(router, http.MethodPatch, "/api/manage/queues/1/call", "")
+	if res.Code != http.StatusInternalServerError {
+		t.Fatalf("expected status %d, got %d", http.StatusInternalServerError, res.Code)
+	}
+}
+
+func TestCompleteQueueBranches(t *testing.T) {
+	router, svc := setupQueueTestRouter()
+
+	res := performQueueRequest(router, http.MethodPatch, "/api/manage/queues/abc/complete", "")
+	if res.Code != http.StatusBadRequest {
+		t.Fatalf("expected status %d, got %d", http.StatusBadRequest, res.Code)
+	}
+
+	svc.err = service.ErrQueueNotFound
+	res = performQueueRequest(router, http.MethodPatch, "/api/manage/queues/1/complete", "")
+	if res.Code != http.StatusNotFound {
+		t.Fatalf("expected status %d, got %d", http.StatusNotFound, res.Code)
+	}
+
+	svc.err = domain.ErrQueueCannotBeCompleted
+	res = performQueueRequest(router, http.MethodPatch, "/api/manage/queues/1/complete", "")
+	if res.Code != http.StatusConflict {
+		t.Fatalf("expected status %d, got %d", http.StatusConflict, res.Code)
+	}
+
+	svc.err = errors.New("boom")
+	res = performQueueRequest(router, http.MethodPatch, "/api/manage/queues/1/complete", "")
+	if res.Code != http.StatusInternalServerError {
+		t.Fatalf("expected status %d, got %d", http.StatusInternalServerError, res.Code)
+	}
+}
+
+func TestSkipQueueBranches(t *testing.T) {
+	router, svc := setupQueueTestRouter()
+
+	res := performQueueRequest(router, http.MethodPatch, "/api/manage/queues/abc/skip", "")
+	if res.Code != http.StatusBadRequest {
+		t.Fatalf("expected status %d, got %d", http.StatusBadRequest, res.Code)
+	}
+
+	svc.err = service.ErrQueueNotFound
+	res = performQueueRequest(router, http.MethodPatch, "/api/manage/queues/1/skip", "")
+	if res.Code != http.StatusNotFound {
+		t.Fatalf("expected status %d, got %d", http.StatusNotFound, res.Code)
+	}
+
+	svc.err = domain.ErrQueueCannotBeSkipped
+	res = performQueueRequest(router, http.MethodPatch, "/api/manage/queues/1/skip", "")
+	if res.Code != http.StatusConflict {
+		t.Fatalf("expected status %d, got %d", http.StatusConflict, res.Code)
+	}
+
+	svc.err = errors.New("boom")
+	res = performQueueRequest(router, http.MethodPatch, "/api/manage/queues/1/skip", "")
+	if res.Code != http.StatusInternalServerError {
+		t.Fatalf("expected status %d, got %d", http.StatusInternalServerError, res.Code)
+	}
+}
+
+func TestGetQueuesByZoneSuccess(t *testing.T) {
+	router, svc := setupQueueTestRouter()
+	svc.queues = []domain.Queue{
+		{ID: 1, QueueNumber: 101, ZoneID: 1, UserID: 1, Status: "waiting"},
+		{ID: 2, QueueNumber: 102, ZoneID: 2, UserID: 1, Status: "waiting"},
+	}
+
+	res := performQueueRequest(router, http.MethodGet, "/api/manage/queues/1", "")
+	if res.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, res.Code)
+	}
+}
+
+func TestCallQueueSuccess(t *testing.T) {
+	router, svc := setupQueueTestRouter()
+	svc.queues = []domain.Queue{
+		{ID: 1, QueueNumber: 101, ZoneID: 1, UserID: 1, Status: "waiting"},
+	}
+
+	res := performQueueRequest(router, http.MethodPatch, "/api/manage/queues/1/call", "")
+	if res.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, res.Code)
+	}
+}
+
+func TestCompleteQueueSuccess(t *testing.T) {
+	router, svc := setupQueueTestRouter()
+	svc.queues = []domain.Queue{
+		{ID: 1, QueueNumber: 101, ZoneID: 1, UserID: 1, Status: "called"},
+	}
+
+	res := performQueueRequest(router, http.MethodPatch, "/api/manage/queues/1/complete", "")
+	if res.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, res.Code)
+	}
+}
+
+func TestSkipQueueSuccess(t *testing.T) {
+	router, svc := setupQueueTestRouter()
+	svc.queues = []domain.Queue{
+		{ID: 1, QueueNumber: 101, ZoneID: 1, UserID: 1, Status: "called"},
+	}
+
+	res := performQueueRequest(router, http.MethodPatch, "/api/manage/queues/1/skip", "")
+	if res.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, res.Code)
+	}
+}
+
 func setupQueueTestRouter() (*gin.Engine, *mockQueueService) {
+	return setupQueueTestRouterWithAuth(true)
+}
+
+func setupQueueTestRouterWithoutAuth() (*gin.Engine, *mockQueueService) {
+	return setupQueueTestRouterWithAuth(false)
+}
+
+func setupQueueTestRouterWithAuth(withAuth bool) (*gin.Engine, *mockQueueService) {
 	gin.SetMode(gin.TestMode)
 
 	router := gin.New()
 	svc := &mockQueueService{}
 	handler := NewQueueHandler(svc)
 
-	// Mock user ID in context
-	router.Use(func(c *gin.Context) {
-		c.Set("user_id", uint(1))
-		c.Next()
-	})
+	if withAuth {
+		router.Use(func(c *gin.Context) {
+			c.Set("user_id", uint(1))
+			c.Next()
+		})
+	}
 
 	api := router.Group("/api")
 	api.POST("/queues/book", handler.BookQueue)
 	api.GET("/queues/history", handler.GetHistory)
 	api.GET("/queues/:queueNumber", handler.GetQueue)
 	api.PATCH("/queues/:id/cancel", handler.CancelQueue)
+	api.GET("/manage/queues/:zoneId", handler.GetQueuesByZone)
+	api.PATCH("/manage/queues/:id/call", handler.CallQueue)
+	api.PATCH("/manage/queues/:id/complete", handler.CompleteQueue)
+	api.PATCH("/manage/queues/:id/skip", handler.SkipQueue)
 
 	return router, svc
 }

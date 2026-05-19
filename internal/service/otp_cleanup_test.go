@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -19,7 +20,7 @@ func TestOTPCleanupJob_CleanupExpiredOTPs(t *testing.T) {
 	}
 
 	job := NewOTPCleanupJob(mock, time.Hour, nil)
-	deleted, err := job.CleanupExpiredOTPs(now)
+	deleted, err := job.CleanupExpiredOTPs(context.Background(), now)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
