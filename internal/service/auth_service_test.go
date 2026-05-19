@@ -114,9 +114,10 @@ func TestAuthService_RequestOTP(t *testing.T) {
 		phone   string
 		wantErr bool
 	}{
-		{"valid phone", "1234567890", false},
+		{"valid phone", "0812345678", false},
 		{"empty phone", "", true},
-		{"create error", "1234567890", true},
+		{"invalid phone format", "abc", true},
+		{"create error", "0812345678", true},
 	}
 
 	for _, tt := range tests {
@@ -162,21 +163,22 @@ func TestAuthService_VerifyOTP(t *testing.T) {
 		setup   func(*mockAuthRepository)
 		wantErr bool
 	}{
-		{"valid OTP", "1234567890", "123456", func(m *mockAuthRepository) {
-			user := &domain.User{ID: 1, Phone: "1234567890", Name: "Test User"}
-			m.users["1234567890"] = user
+		{"valid OTP", "0812345678", "123456", func(m *mockAuthRepository) {
+			user := &domain.User{ID: 1, Phone: "0812345678", Name: "Test User"}
+			m.users["0812345678"] = user
 			m.usersByID[1] = user
-			m.otp = &domain.OTP{ID: 1, Phone: "1234567890", Code: "123456", Used: false, ExpiresAt: time.Now().Add(5 * time.Minute)}
+			m.otp = &domain.OTP{ID: 1, Phone: "0812345678", Code: "123456", Used: false, ExpiresAt: time.Now().Add(5 * time.Minute)}
 		}, false},
 		{"invalid phone", "", "123456", func(m *mockAuthRepository) {}, true},
-		{"invalid code", "1234567890", "", func(m *mockAuthRepository) {}, true},
-		{"OTP not found", "1234567890", "123456", func(m *mockAuthRepository) {}, true},
-		{"OTP already used", "1234567890", "123456", func(m *mockAuthRepository) {
-			m.otp = &domain.OTP{ID: 1, Phone: "1234567890", Code: "123456", Used: false, ExpiresAt: time.Now().Add(5 * time.Minute)}
+		{"invalid phone format", "abc", "123456", func(m *mockAuthRepository) {}, true},
+		{"invalid code", "0812345678", "", func(m *mockAuthRepository) {}, true},
+		{"OTP not found", "0812345678", "123456", func(m *mockAuthRepository) {}, true},
+		{"OTP already used", "0812345678", "123456", func(m *mockAuthRepository) {
+			m.otp = &domain.OTP{ID: 1, Phone: "0812345678", Code: "123456", Used: false, ExpiresAt: time.Now().Add(5 * time.Minute)}
 			m.otpUsed = true
 		}, true},
-		{"user not found", "1234567890", "123456", func(m *mockAuthRepository) {
-			m.otp = &domain.OTP{ID: 1, Phone: "1234567890", Code: "123456", Used: false, ExpiresAt: time.Now().Add(5 * time.Minute)}
+		{"user not found", "0812345678", "123456", func(m *mockAuthRepository) {
+			m.otp = &domain.OTP{ID: 1, Phone: "0812345678", Code: "123456", Used: false, ExpiresAt: time.Now().Add(5 * time.Minute)}
 		}, false},
 		{"mark OTP error", "1234567890", "123456", func(m *mockAuthRepository) {
 			user := &domain.User{ID: 1, Phone: "1234567890", Name: "Test User"}
@@ -239,30 +241,31 @@ func TestAuthService_RegisterUser(t *testing.T) {
 		setup    func(*mockAuthRepository)
 		wantErr  bool
 	}{
-		{"valid registration", "1234567890", "Test User", "user", "123456", func(m *mockAuthRepository) {
-			m.otp = &domain.OTP{ID: 1, Phone: "1234567890", Code: "123456", Used: false, ExpiresAt: time.Now().Add(5 * time.Minute)}
+		{"valid registration", "0812345678", "Test User", "user", "123456", func(m *mockAuthRepository) {
+			m.otp = &domain.OTP{ID: 1, Phone: "0812345678", Code: "123456", Used: false, ExpiresAt: time.Now().Add(5 * time.Minute)}
 		}, false},
 		{"empty phone", "", "Test User", "user", "123456", func(m *mockAuthRepository) {}, true},
-		{"empty name", "1234567890", "", "user", "123456", func(m *mockAuthRepository) {}, true},
-		{"user exists", "1234567890", "Test User", "user", "123456", func(m *mockAuthRepository) {
-			user := &domain.User{ID: 1, Phone: "1234567890", Name: "Existing User"}
-			m.users["1234567890"] = user
+		{"invalid phone format", "abc", "Test User", "user", "123456", func(m *mockAuthRepository) {}, true},
+		{"empty name", "0812345678", "", "user", "123456", func(m *mockAuthRepository) {}, true},
+		{"user exists", "0812345678", "Test User", "user", "123456", func(m *mockAuthRepository) {
+			user := &domain.User{ID: 1, Phone: "0812345678", Name: "Existing User"}
+			m.users["0812345678"] = user
 		}, true},
-		{"empty OTP code", "1234567890", "Test User", "user", "", func(m *mockAuthRepository) {}, true},
-		{"OTP already used", "1234567890", "Test User", "user", "123456", func(m *mockAuthRepository) {
-			m.otp = &domain.OTP{ID: 1, Phone: "1234567890", Code: "123456", Used: false, ExpiresAt: time.Now().Add(5 * time.Minute)}
+		{"empty OTP code", "0812345678", "Test User", "user", "", func(m *mockAuthRepository) {}, true},
+		{"OTP already used", "0812345678", "Test User", "user", "123456", func(m *mockAuthRepository) {
+			m.otp = &domain.OTP{ID: 1, Phone: "0812345678", Code: "123456", Used: false, ExpiresAt: time.Now().Add(5 * time.Minute)}
 			m.otpUsed = true
 		}, true},
-		{"mark OTP error", "1234567890", "Test User", "user", "123456", func(m *mockAuthRepository) {
-			m.otp = &domain.OTP{ID: 1, Phone: "1234567890", Code: "123456", Used: false, ExpiresAt: time.Now().Add(5 * time.Minute)}
+		{"mark OTP error", "0812345678", "Test User", "user", "123456", func(m *mockAuthRepository) {
+			m.otp = &domain.OTP{ID: 1, Phone: "0812345678", Code: "123456", Used: false, ExpiresAt: time.Now().Add(5 * time.Minute)}
 			m.markOTPErr = errors.New("mark OTP failed")
 		}, true},
-		{"create error", "1234567890", "Test User", "user", "123456", func(m *mockAuthRepository) {
-			m.otp = &domain.OTP{ID: 1, Phone: "1234567890", Code: "123456", Used: false, ExpiresAt: time.Now().Add(5 * time.Minute)}
+		{"create error", "0812345678", "Test User", "user", "123456", func(m *mockAuthRepository) {
+			m.otp = &domain.OTP{ID: 1, Phone: "0812345678", Code: "123456", Used: false, ExpiresAt: time.Now().Add(5 * time.Minute)}
 			m.createUserErr = errors.New("database error")
 		}, true},
-		{"default role", "1234567890", "Test User", "", "123456", func(m *mockAuthRepository) {
-			m.otp = &domain.OTP{ID: 1, Phone: "1234567890", Code: "123456", Used: false, ExpiresAt: time.Now().Add(5 * time.Minute)}
+		{"default role", "0812345678", "Test User", "", "123456", func(m *mockAuthRepository) {
+			m.otp = &domain.OTP{ID: 1, Phone: "0812345678", Code: "123456", Used: false, ExpiresAt: time.Now().Add(5 * time.Minute)}
 		}, false},
 	}
 
@@ -318,10 +321,10 @@ func TestAuthService_RegisterUser(t *testing.T) {
 
 func TestAuthService_VerifyOTP_TokenGenerationError(t *testing.T) {
 	mock := newMockAuthRepository()
-	user := &domain.User{ID: 1, Phone: "1234567890", Name: "Test User", Role: "user"}
-	mock.users["1234567890"] = user
+	user := &domain.User{ID: 1, Phone: "0812345678", Name: "Test User", Role: "user"}
+	mock.users["0812345678"] = user
 	mock.usersByID[1] = user
-	mock.otp = &domain.OTP{ID: 1, Phone: "1234567890", Code: "123456", Used: false, ExpiresAt: time.Now().Add(5 * time.Minute)}
+	mock.otp = &domain.OTP{ID: 1, Phone: "0812345678", Code: "123456", Used: false, ExpiresAt: time.Now().Add(5 * time.Minute)}
 
 	jwtManager := jwt.NewJWTManager("test-secret-key")
 	service := NewAuthService(mock, jwtManager)
@@ -330,7 +333,7 @@ func TestAuthService_VerifyOTP_TokenGenerationError(t *testing.T) {
 		return "", errors.New("token generation failed")
 	}
 
-	gotUser, gotToken, err := service.VerifyOTP(context.Background(), "1234567890", "123456")
+	gotUser, gotToken, err := service.VerifyOTP(context.Background(), "0812345678", "123456")
 	if err == nil {
 		t.Fatalf("expected error but got nil")
 	}
@@ -344,7 +347,7 @@ func TestAuthService_VerifyOTP_TokenGenerationError(t *testing.T) {
 
 func TestAuthService_RegisterUser_TokenGenerationError(t *testing.T) {
 	mock := newMockAuthRepository()
-	mock.otp = &domain.OTP{ID: 1, Phone: "1234567890", Code: "123456", Used: false, ExpiresAt: time.Now().Add(5 * time.Minute)}
+	mock.otp = &domain.OTP{ID: 1, Phone: "0812345678", Code: "123456", Used: false, ExpiresAt: time.Now().Add(5 * time.Minute)}
 
 	jwtManager := jwt.NewJWTManager("test-secret-key")
 	service := NewAuthService(mock, jwtManager)
@@ -353,7 +356,7 @@ func TestAuthService_RegisterUser_TokenGenerationError(t *testing.T) {
 		return "", errors.New("token generation failed")
 	}
 
-	gotUser, gotToken, err := service.RegisterUser(context.Background(), "1234567890", "Test User", "user", "123456")
+	gotUser, gotToken, err := service.RegisterUser(context.Background(), "0812345678", "Test User", "user", "123456")
 	if err == nil {
 		t.Fatalf("expected error but got nil")
 	}
@@ -373,7 +376,7 @@ func TestAuthService_GetUserProfile(t *testing.T) {
 		wantErr bool
 	}{
 		{"valid user", 1, func(m *mockAuthRepository) {
-			user := &domain.User{ID: 1, Phone: "1234567890", Name: "Test User"}
+			user := &domain.User{ID: 1, Phone: "0812345678", Name: "Test User"}
 			m.usersByID[1] = user
 		}, false},
 		{"invalid user ID", 0, func(m *mockAuthRepository) {}, true},
@@ -423,22 +426,22 @@ func TestAuthService_UpdateUserProfile(t *testing.T) {
 		wantErr  bool
 	}{
 		{"valid update", 1, "Updated Name", "", func(m *mockAuthRepository) {
-			user := &domain.User{ID: 1, Phone: "1234567890", Name: "Test User", Role: "user"}
+			user := &domain.User{ID: 1, Phone: "0812345678", Name: "Test User", Role: "user"}
 			m.usersByID[1] = user
 		}, false},
 		{"invalid user ID", 0, "Updated Name", "", func(m *mockAuthRepository) {}, true},
 		{"user not found", 999, "Updated Name", "", func(m *mockAuthRepository) {}, true},
 		{"update error", 1, "Updated Name", "", func(m *mockAuthRepository) {
-			user := &domain.User{ID: 1, Phone: "1234567890", Name: "Test User", Role: "user"}
+			user := &domain.User{ID: 1, Phone: "0812345678", Name: "Test User", Role: "user"}
 			m.usersByID[1] = user
 			m.updateUserErr = errors.New("database error")
 		}, true},
 		{"partial update name", 1, "Updated Name", "", func(m *mockAuthRepository) {
-			user := &domain.User{ID: 1, Phone: "1234567890", Name: "Test User", Role: "user"}
+			user := &domain.User{ID: 1, Phone: "0812345678", Name: "Test User", Role: "user"}
 			m.usersByID[1] = user
 		}, false},
 		{"partial update role", 1, "", "admin", func(m *mockAuthRepository) {
-			user := &domain.User{ID: 1, Phone: "1234567890", Name: "Test User", Role: "user"}
+			user := &domain.User{ID: 1, Phone: "0812345678", Name: "Test User", Role: "user"}
 			m.usersByID[1] = user
 		}, true}, // Should fail - role changes not allowed
 	}

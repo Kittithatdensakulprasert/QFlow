@@ -4,10 +4,17 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"regexp"
 
 	"qflow/internal/domain"
 	"qflow/internal/jwt"
 )
+
+var phonePattern = regexp.MustCompile(`^0[0-9]{9}$`)
+
+func isValidPhone(phone string) bool {
+	return phonePattern.MatchString(phone)
+}
 
 type authService struct {
 	authRepo   domain.AuthRepository
@@ -25,7 +32,10 @@ func NewAuthService(authRepo domain.AuthRepository, jwtManager *jwt.JWTManager) 
 
 func (s *authService) RequestOTP(ctx context.Context, phone string) (*domain.OTP, error) {
 	if phone == "" {
-		return nil, errors.New("phone number is required")
+		return nil, domain.ErrPhoneRequired
+	}
+	if !isValidPhone(phone) {
+		return nil, domain.ErrPhoneInvalid
 	}
 
 	otp, err := s.authRepo.CreateOTP(ctx, phone)
@@ -38,11 +48,14 @@ func (s *authService) RequestOTP(ctx context.Context, phone string) (*domain.OTP
 
 func (s *authService) VerifyOTP(ctx context.Context, phone, code string) (*domain.User, string, error) {
 	if phone == "" {
-		return nil, "", errors.New("phone number is required")
+		return nil, "", domain.ErrPhoneRequired
+	}
+	if !isValidPhone(phone) {
+		return nil, "", domain.ErrPhoneInvalid
 	}
 
 	if code == "" {
-		return nil, "", errors.New("code is required")
+		return nil, "", domain.ErrCodeRequired
 	}
 
 	otp, err := s.authRepo.FindValidOTP(ctx, phone, code)
@@ -81,11 +94,14 @@ func (s *authService) VerifyOTP(ctx context.Context, phone, code string) (*domai
 
 func (s *authService) RegisterUser(ctx context.Context, phone, name, role, otpCode string) (*domain.User, string, error) {
 	if phone == "" {
-		return nil, "", errors.New("phone number is required")
+		return nil, "", domain.ErrPhoneRequired
+	}
+	if !isValidPhone(phone) {
+		return nil, "", domain.ErrPhoneInvalid
 	}
 
 	if name == "" {
-		return nil, "", errors.New("name is required")
+		return nil, "", domain.ErrNameRequired
 	}
 
 	// Force role to be "user" for security - role escalation should be handled by admin-only endpoints
@@ -98,7 +114,7 @@ func (s *authService) RegisterUser(ctx context.Context, phone, name, role, otpCo
 	}
 
 	if otpCode == "" {
-		return nil, "", errors.New("OTP code is required")
+		return nil, "", domain.ErrOTPCodeRequired
 	}
 
 	// SECURITY: Check if there's a valid OTP for this phone

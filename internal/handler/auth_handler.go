@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"errors"
 	"net/http"
 	"qflow/internal/domain"
 
@@ -27,6 +28,10 @@ func (h *AuthHandler) RequestOTP(c *gin.Context) {
 
 	otp, err := h.authService.RequestOTP(c.Request.Context(), req.Phone)
 	if err != nil {
+		if errors.Is(err, domain.ErrPhoneRequired) || errors.Is(err, domain.ErrPhoneInvalid) {
+			respondError(c, http.StatusBadRequest, "INVALID_PHONE", err.Error())
+			return
+		}
 		respondError(c, http.StatusInternalServerError, "OTP_SEND_FAILED", "failed to send OTP")
 		return
 	}
@@ -53,6 +58,12 @@ func (h *AuthHandler) VerifyOTP(c *gin.Context) {
 
 	user, token, err := h.authService.VerifyOTP(c.Request.Context(), req.Phone, req.Code)
 	if err != nil {
+		if errors.Is(err, domain.ErrPhoneRequired) ||
+			errors.Is(err, domain.ErrPhoneInvalid) ||
+			errors.Is(err, domain.ErrCodeRequired) {
+			respondError(c, http.StatusBadRequest, "INVALID_INPUT", err.Error())
+			return
+		}
 		respondError(c, http.StatusUnauthorized, "OTP_INVALID", err.Error())
 		return
 	}
@@ -78,6 +89,13 @@ func (h *AuthHandler) Register(c *gin.Context) {
 
 	user, token, err := h.authService.RegisterUser(c.Request.Context(), req.Phone, req.Name, req.Role, req.OTPCode)
 	if err != nil {
+		if errors.Is(err, domain.ErrPhoneRequired) ||
+			errors.Is(err, domain.ErrPhoneInvalid) ||
+			errors.Is(err, domain.ErrNameRequired) ||
+			errors.Is(err, domain.ErrOTPCodeRequired) {
+			respondError(c, http.StatusBadRequest, "INVALID_INPUT", err.Error())
+			return
+		}
 		respondError(c, http.StatusBadRequest, "REGISTRATION_FAILED", err.Error())
 		return
 	}
