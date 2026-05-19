@@ -3,7 +3,6 @@ package repository
 import (
 	"context"
 	"crypto/rand"
-	"errors"
 	"fmt"
 	"math/big"
 	"time"
@@ -59,7 +58,7 @@ func (r *authRepository) MarkOTPAsUsed(ctx context.Context, otpID uint) error {
 		return result.Error
 	}
 	if result.RowsAffected == 0 {
-		return errors.New("OTP has already been used or does not exist")
+		return domain.ErrOTPAlreadyUsed
 	}
 	return nil
 }

@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"regexp"
 
@@ -60,7 +59,7 @@ func (s *authService) VerifyOTP(ctx context.Context, phone, code string) (*domai
 
 	otp, err := s.authRepo.FindValidOTP(ctx, phone, code)
 	if err != nil {
-		return nil, "", errors.New("invalid or expired OTP")
+		return nil, "", domain.ErrInvalidOTP
 	}
 
 	// Mark OTP as used
@@ -110,7 +109,7 @@ func (s *authService) RegisterUser(ctx context.Context, phone, name, role, otpCo
 	// SECURITY: Check if user already exists
 	existingUser, err := s.authRepo.FindUserByPhone(ctx, phone)
 	if err == nil && existingUser != nil {
-		return nil, "", errors.New("user with this phone number already exists")
+		return nil, "", domain.ErrUserExists
 	}
 
 	if otpCode == "" {
@@ -120,7 +119,7 @@ func (s *authService) RegisterUser(ctx context.Context, phone, name, role, otpCo
 	// SECURITY: Check if there's a valid OTP for this phone
 	otp, err := s.authRepo.FindValidOTP(ctx, phone, otpCode)
 	if err != nil || otp == nil {
-		return nil, "", errors.New("phone number not verified. Please request OTP first")
+		return nil, "", domain.ErrInvalidOTP
 	}
 
 	// Mark OTP as used to prevent reuse
@@ -150,12 +149,12 @@ func (s *authService) RegisterUser(ctx context.Context, phone, name, role, otpCo
 
 func (s *authService) GetUserProfile(ctx context.Context, userID uint) (*domain.User, error) {
 	if userID == 0 {
-		return nil, errors.New("user ID is required")
+		return nil, domain.ErrUserIDRequired
 	}
 
 	user, err := s.authRepo.FindUserByID(ctx, userID)
 	if err != nil {
-		return nil, errors.New("user not found")
+		return nil, domain.ErrUserNotFound
 	}
 
 	return user, nil
@@ -163,12 +162,12 @@ func (s *authService) GetUserProfile(ctx context.Context, userID uint) (*domain.
 
 func (s *authService) UpdateUserProfile(ctx context.Context, userID uint, name, role string) (*domain.User, error) {
 	if userID == 0 {
-		return nil, errors.New("user ID is required")
+		return nil, domain.ErrUserIDRequired
 	}
 
 	user, err := s.authRepo.FindUserByID(ctx, userID)
 	if err != nil {
-		return nil, errors.New("user not found")
+		return nil, domain.ErrUserNotFound
 	}
 
 	if name != "" {
@@ -179,7 +178,7 @@ func (s *authService) UpdateUserProfile(ctx context.Context, userID uint, name, 
 	// For now, prevent any role changes through this endpoint
 	// Role management should be handled by admin-only endpoints
 	if role != "" && role != user.Role {
-		return nil, errors.New("role changes are not allowed through this endpoint")
+		return nil, domain.ErrRoleNotAllowed
 	}
 
 	if err := s.authRepo.UpdateUser(ctx, user); err != nil {

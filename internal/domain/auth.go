@@ -7,10 +7,16 @@ import (
 )
 
 var (
+	ErrInvalidOTP      = errors.New("invalid or expired OTP")
+	ErrOTPAlreadyUsed  = errors.New("OTP has already been used or does not exist")
+	ErrUserNotFound    = errors.New("user not found")
+	ErrUserExists      = errors.New("user with this phone number already exists")
 	ErrPhoneRequired   = errors.New("phone number is required")
-	ErrPhoneInvalid    = errors.New("phone number format is invalid")
 	ErrCodeRequired    = errors.New("code is required")
 	ErrNameRequired    = errors.New("name is required")
+	ErrUserIDRequired  = errors.New("user ID is required")
+	ErrRoleNotAllowed  = errors.New("role changes are not allowed through this endpoint")
+	ErrPhoneInvalid    = errors.New("phone number format is invalid")
 	ErrOTPCodeRequired = errors.New("OTP code is required")
 )
 
