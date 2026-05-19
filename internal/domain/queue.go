@@ -1,11 +1,11 @@
 package domain
 
 import (
+	"context"
 	"errors"
 	"time"
 )
 
-// Sentinel errors for queue management
 var (
 	ErrQueueCannotBeCalled    = errors.New("queue cannot be called")
 	ErrQueueCannotBeCompleted = errors.New("only called queue can be completed")
@@ -19,28 +19,29 @@ type Queue struct {
 	Zone        Zone      `gorm:"foreignKey:ZoneID" json:"zone,omitempty"`
 	UserID      uint      `gorm:"index;not null" json:"user_id"`
 	User        User      `gorm:"foreignKey:UserID" json:"user,omitempty"`
-	Status      string    `gorm:"index;default:waiting" json:"status"` // waiting, called, completed, skipped, cancelled
+	Status      string    `gorm:"index;default:waiting" json:"status"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
 }
 
 type QueueRepository interface {
-	FindZoneByID(id uint) (*Zone, error)
-	CreateWithNextQueueNumber(queue *Queue) error
-	FindByQueueNumber(queueNumber int) (*Queue, error)
-	FindByID(id uint) (*Queue, error)
-	FindByUserID(userID uint) ([]Queue, error)
-	UpdateStatus(id uint, status string) error
-	GetByZoneID(zoneID uint) ([]Queue, error)
+	FindZoneByID(ctx context.Context, id uint) (*Zone, error)
+	CreateWithNextQueueNumber(ctx context.Context, queue *Queue) error
+	FindByQueueNumber(ctx context.Context, queueNumber int) (*Queue, error)
+	FindByID(ctx context.Context, id uint) (*Queue, error)
+	FindByUserID(ctx context.Context, userID uint, offset, limit int) ([]Queue, error)
+	CountByUserID(ctx context.Context, userID uint) (int64, error)
+	UpdateStatus(ctx context.Context, id uint, status string) error
+	GetByZoneID(ctx context.Context, zoneID uint) ([]Queue, error)
 }
 
 type QueueService interface {
-	BookQueue(userID, zoneID uint) (*Queue, error)
-	GetQueueByNumber(queueNumber int, userID uint) (*Queue, error)
-	GetQueueHistory(userID uint) ([]Queue, error)
-	CancelQueue(id, userID uint) error
-	GetQueuesByZone(zoneID uint) ([]Queue, error)
-	CallQueue(id uint) (*Queue, error)
-	CompleteQueue(id uint) (*Queue, error)
-	SkipQueue(id uint) (*Queue, error)
+	BookQueue(ctx context.Context, userID, zoneID uint) (*Queue, error)
+	GetQueueByNumber(ctx context.Context, queueNumber int, userID uint) (*Queue, error)
+	GetQueueHistory(ctx context.Context, userID uint, page, limit int) ([]Queue, int64, error)
+	CancelQueue(ctx context.Context, id, userID uint) error
+	GetQueuesByZone(ctx context.Context, zoneID uint) ([]Queue, error)
+	CallQueue(ctx context.Context, id uint) (*Queue, error)
+	CompleteQueue(ctx context.Context, id uint) (*Queue, error)
+	SkipQueue(ctx context.Context, id uint) (*Queue, error)
 }

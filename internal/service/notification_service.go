@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"qflow/internal/domain"
 )
@@ -18,11 +19,22 @@ func NewNotificationService(repo domain.NotificationRepository) domain.Notificat
 	return &notificationService{repo: repo}
 }
 
-func (s *notificationService) GetNotifications(userID uint) ([]domain.Notification, error) {
-	return s.repo.FindByUserID(userID)
+func (s *notificationService) GetNotifications(ctx context.Context, userID uint, page, limit int) ([]domain.Notification, int64, error) {
+	offset := (page - 1) * limit
+	notifications, err := s.repo.FindByUserID(ctx, userID, offset, limit)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	total, err := s.repo.CountByUserID(ctx, userID)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return notifications, total, nil
 }
 
-func (s *notificationService) SendNotification(userID uint, message string) (*domain.Notification, error) {
+func (s *notificationService) SendNotification(ctx context.Context, userID uint, message string) (*domain.Notification, error) {
 	if message == "" {
 		return nil, errors.New("message is required")
 	}
@@ -31,14 +43,14 @@ func (s *notificationService) SendNotification(userID uint, message string) (*do
 		Message: message,
 		IsRead:  false,
 	}
-	if err := s.repo.Create(n); err != nil {
+	if err := s.repo.Create(ctx, n); err != nil {
 		return nil, err
 	}
 	return n, nil
 }
 
-func (s *notificationService) MarkNotificationRead(id, userID uint) error {
-	n, err := s.repo.FindByID(id)
+func (s *notificationService) MarkNotificationRead(ctx context.Context, id, userID uint) error {
+	n, err := s.repo.FindByID(ctx, id)
 	if err != nil {
 		return ErrNotificationNotFound
 	}
@@ -48,16 +60,16 @@ func (s *notificationService) MarkNotificationRead(id, userID uint) error {
 	if n.IsRead {
 		return nil
 	}
-	return s.repo.MarkRead(id)
+	return s.repo.MarkRead(ctx, id)
 }
 
-func (s *notificationService) DeleteNotification(id, userID uint) error {
-	n, err := s.repo.FindByID(id)
+func (s *notificationService) DeleteNotification(ctx context.Context, id, userID uint) error {
+	n, err := s.repo.FindByID(ctx, id)
 	if err != nil {
 		return ErrNotificationNotFound
 	}
 	if n.UserID != userID {
 		return ErrNotificationForbidden
 	}
-	return s.repo.Delete(id)
+	return s.repo.Delete(ctx, id)
 }

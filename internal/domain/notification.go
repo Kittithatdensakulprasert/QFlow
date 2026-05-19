@@ -1,6 +1,9 @@
 package domain
 
-import "time"
+import (
+	"context"
+	"time"
+)
 
 type Notification struct {
 	ID        uint      `gorm:"primaryKey" json:"id"`
@@ -13,16 +16,17 @@ type Notification struct {
 }
 
 type NotificationRepository interface {
-	FindByUserID(userID uint) ([]Notification, error)
-	FindByID(id uint) (*Notification, error)
-	Create(n *Notification) error
-	MarkRead(id uint) error
-	Delete(id uint) error
+	FindByUserID(ctx context.Context, userID uint, offset, limit int) ([]Notification, error)
+	CountByUserID(ctx context.Context, userID uint) (int64, error)
+	FindByID(ctx context.Context, id uint) (*Notification, error)
+	Create(ctx context.Context, n *Notification) error
+	MarkRead(ctx context.Context, id uint) error
+	Delete(ctx context.Context, id uint) error
 }
 
 type NotificationService interface {
-	GetNotifications(userID uint) ([]Notification, error)
-	SendNotification(userID uint, message string) (*Notification, error)
-	MarkNotificationRead(id, userID uint) error
-	DeleteNotification(id, userID uint) error
+	GetNotifications(ctx context.Context, userID uint, page, limit int) ([]Notification, int64, error)
+	SendNotification(ctx context.Context, userID uint, message string) (*Notification, error)
+	MarkNotificationRead(ctx context.Context, id, userID uint) error
+	DeleteNotification(ctx context.Context, id, userID uint) error
 }
