@@ -107,8 +107,6 @@ func (h *QueueHandler) GetQueue(c *gin.Context) {
 			respondError(c, http.StatusBadRequest, "INVALID_INPUT", err.Error())
 		case errors.Is(err, service.ErrQueueNotFound):
 			respondError(c, http.StatusNotFound, "QUEUE_NOT_FOUND", err.Error())
-		case errors.Is(err, service.ErrForbiddenQueue):
-			respondError(c, http.StatusForbidden, "FORBIDDEN", err.Error())
 		default:
 			respondError(c, http.StatusInternalServerError, "INTERNAL_SERVER_ERROR", "internal server error")
 		}
